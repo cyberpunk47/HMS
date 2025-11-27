@@ -1,0 +1,56 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-GatewayMsApplication<GatewayMS>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hms.gateway.GatewayMsApplication",
+            "projectName": "GatewayMS",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-UserMsApplication<UserMS>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hms.user.UserMsApplication",
+            "projectName": "UserMS",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ProfileMsApplication<ProfileMS>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hms.profile.ProfileMsApplication",
+            "projectName": "ProfileMS",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-AppointmentApplication<Appointment>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hms.appointment.AppointmentApplication",
+            "projectName": "Appointment",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-EurekaServerApplication<Eureka-Server>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hms.eurek_server.EurekaServerApplication",
+            "projectName": "Eureka-Server",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
