@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hms.profile.dto.DoctorDTO;
@@ -19,7 +20,6 @@ import com.hms.profile.service.DoctorService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import com.hms.profile.dto.DoctorDropdown;
 
@@ -52,9 +52,14 @@ public class DoctorAPI {
         return new ResponseEntity<>(DoctorService.doctorExists(id), HttpStatus.OK);
     }
 
+    
     @GetMapping("/dropdowns")
     public ResponseEntity<List<DoctorDropdown>> getDoctorDropdowns() throws HmsException {
         return new ResponseEntity<>(DoctorService.getDoctorDropdowns(), HttpStatus.OK);
     }
     
+    @GetMapping("/getDoctorsById")
+    public ResponseEntity<List<DoctorDropdown>> getDoctorsById(@RequestParam List<Long> ids) throws HmsException {
+        return new ResponseEntity<>(DoctorService.getDoctorsById(ids), HttpStatus.OK);
+    }
 }

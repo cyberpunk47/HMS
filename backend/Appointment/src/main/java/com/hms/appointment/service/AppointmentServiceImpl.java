@@ -21,8 +21,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Autowired
     private AppointmentRepository appointmentRepository;
 
-    @Autowired
-    private ApiService apiService;
+    // @Autowired
+    // private ApiService apiService;
 
     @Autowired
     private ProfileClient profileClient;
