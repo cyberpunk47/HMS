@@ -5,6 +5,8 @@ import com.hms.appointment.dto.Status;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,6 +27,7 @@ public class Appointment {
     private Long patientId;
     private Long doctorId;
     private LocalDateTime appointmentTime;
+    @Enumerated(EnumType.STRING)
     private Status status;
     private String reason;
     private String notes;
