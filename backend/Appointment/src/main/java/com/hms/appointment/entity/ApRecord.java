@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.hms.appointment.dto.ApRecordDTO;
+import com.hms.appointment.dto.RecordDetails;
 import com.hms.appointment.utility.StringListConverter;
 
 import jakarta.persistence.Entity;
@@ -28,7 +29,7 @@ public class ApRecord {
     private Long patientId;
     private Long doctorId;
     @OneToOne(fetch= FetchType.LAZY)
-    @JoinColumn(name="appointmentId")
+    @JoinColumn(name="appointment_id")
     private Appointment appointment;
     private String symptoms;
     private String diagnosis;
@@ -39,6 +40,10 @@ public class ApRecord {
     private LocalDateTime createdAt;
 
     public ApRecordDTO toDTO(){
-        return new ApRecordDTO(id, patientId, doctorId, appointment.getId(), StringListConverter.convertStringToList(symptoms), diagnosis, StringListConverter.convertStringToList(tests), notes, referral, followUpDate, createdAt);
+        return new ApRecordDTO(id, patientId, doctorId, appointment.getId(), StringListConverter.convertStringToList(symptoms), diagnosis, StringListConverter.convertStringToList(tests), notes, referral, null, followUpDate, createdAt);
+    }
+    
+    public RecordDetails toRecordDetails(){
+        return new RecordDetails(id, patientId, doctorId, null, appointment.getId(), StringListConverter.convertStringToList(symptoms), diagnosis, StringListConverter.convertStringToList(tests), notes, referral, followUpDate, createdAt);
     }
 }
