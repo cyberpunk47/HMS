@@ -1,0 +1,162 @@
+databases:
+  - name: hms-user-db
+    plan: free
+    databaseName: hms_user_db
+    
+  - name: hms-profile-db
+    plan: free
+    databaseName: hms_profile_db
+    
+  - name: hms-appointment-db
+    plan: free
+    databaseName: hms_appointment_db
+
+services:
+  # ── Eureka Server (deploy first) ──
+  - type: web
+    name: hms-eureka
+    plan: free
+    runtime: docker
+    dockerfilePath: ./backend/Eureka-Server/Dockerfile
+    dockerContext: ./backend/Eureka-Server
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: PORT
+        value: 8761
+
+  # ── User Microservice ──
+  - type: web
+    name: hms-userms
+    plan: free
+    runtime: docker
+    dockerfilePath: ./backend/UserMS/Dockerfile
+    dockerContext: ./backend/UserMS
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: PORT
+        value: 8080
+      - key: DB_HOST
+        fromDatabase:
+          name: hms-user-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hms-user-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: hms-user-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: hms-user-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hms-user-db
+          property: password
+      - key: EUREKA_URL
+        fromService:
+          name: hms-eureka
+          type: web
+          property: hostport
+        # Will be set to https://hms-eureka.onrender.com
+        # Append /eureka manually or use envVarPath below
+
+  # ── Profile Microservice ──
+  - type: web
+    name: hms-profilems
+    plan: free
+    runtime: docker
+    dockerfilePath: ./backend/ProfileMS/Dockerfile
+    dockerContext: ./backend/ProfileMS
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: PORT
+        value: 9100
+      - key: DB_HOST
+        fromDatabase:
+          name: hms-profile-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hms-profile-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: hms-profile-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: hms-profile-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hms-profile-db
+          property: password
+      - key: EUREKA_URL
+        fromService:
+          name: hms-eureka
+          type: web
+          property: hostport
+
+  # ── Appointment Microservice ──
+  - type: web
+    name: hms-appointmentms
+    plan: free
+    runtime: docker
+    dockerfilePath: ./backend/Appointment/Dockerfile
+    dockerContext: ./backend/Appointment
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: PORT
+        value: 9200
+      - key: DB_HOST
+        fromDatabase:
+          name: hms-appointment-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hms-appointment-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: hms-appointment-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: hms-appointment-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hms-appointment-db
+          property: password
+      - key: EUREKA_URL
+        fromService:
+          name: hms-eureka
+          type: web
+          property: hostport
+
+  # ── API Gateway ──
+  - type: web
+    name: hms-gateway
+    plan: free
+    runtime: docker
+    dockerfilePath: ./backend/GatewayMS/Dockerfile
+    dockerContext: ./backend/GatewayMS
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: PORT
+        value: 9000
+      - key: EUREKA_URL
+        fromService:
+          name: hms-eureka
+          type: web
+          property: hostport
+      - key: FRONTEND_URL
+        sync: false # You'll set this after deploying frontend to Vercel
