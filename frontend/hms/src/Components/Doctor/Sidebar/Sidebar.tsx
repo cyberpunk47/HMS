@@ -13,16 +13,16 @@ const links = [
         name: "Profile", url: "/doctor/profile", icon: <IconUser stroke={1.5} />
     },
     {
-        name: "Patients", url: "/doctor/patients",
-        icon: <IconMoodHeart stroke={1.5} />
+        // name: "Patients", url: "/doctor/patients",
+        // icon: <IconMoodHeart stroke={1.5} />
     },
     {
         name: "Appointments", url: "/doctor/appointments",
         icon: <IconCalendarCheck stroke={1.5} />
     },
     {
-        name: "Pharmacy", url: "/doctor/pharmacy",
-        icon: <IconVaccine stroke={1.5} />
+        // name: "Pharmacy", url: "/doctor/pharmacy",
+        // icon: <IconVaccine stroke={1.5} />
     }
 ]
 
@@ -54,6 +54,7 @@ const Sidebar = () => {
                 <div className='flex flex-col gap-1'>
                     {
                         links.map((link) => {
+                            if(!link.name) return null;
                             return <NavLink to={link.url} key={link.url} className={({ isActive }) => `flex items-center gap-3 w-full font-medium text-light  px-4 py-5 rounded-lg ${isActive ? 'bg-primary-400 text-dark' : 'hover:bg-gray-100 hover:text-dark'}`}>
                                 {link.icon}
                                 <span>{link.name}</span>

@@ -1,11 +1,13 @@
 const formatDate = (dateString: any) => {
     if (!dateString) return undefined;
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const date = new Date(dateString);
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    return date.toLocaleDateString('en-US', options);
 }
 const formatDateWithTime = (dateString: any) => {
     if (!dateString) return undefined;
@@ -18,6 +20,7 @@ const formatDateWithTime = (dateString: any) => {
         hour: 'numeric',
         minute: 'numeric',
         hour12: true,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     return date.toLocaleString('en-US', options);
 }
