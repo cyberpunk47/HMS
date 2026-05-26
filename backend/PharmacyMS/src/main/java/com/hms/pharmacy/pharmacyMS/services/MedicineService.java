@@ -15,4 +15,10 @@ public interface MedicineService {
     void updateMedicine(MedicineDTO medicineDTO) throws HmsException;
     //List of medicine ko lene ke liye we will use lists and send it to the api response as a list of DTO 
     List<MedicineDTO> getAllMedicines() throws HmsException;
+    // get stock
+    public Integer getStockById(Long id) throws HmsException;
+    // add stok
+    public Integer addStockById(Long id, Integer quantity) throws HmsException;
+    // remove stock 
+    public Integer removeStockById(Long id, Integer quantity) throws HmsException;
 }
