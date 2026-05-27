@@ -19,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class MedicineInventoryServiceImpl implements MedicineInventoryService {
 
     private final MedicineInventoryRepository medicineInventoryRepository;
@@ -39,7 +38,9 @@ public class MedicineInventoryServiceImpl implements MedicineInventoryService {
                 .toDTO();
     }
 
+
     @Override
+    @Transactional
     public MedicineInventoryDTO addMedicineBatch(MedicineInventoryDTO batchDTO) throws HmsException {
         batchDTO.setAddedDate(LocalDate.now());
         medicineService.addStock(batchDTO.getMedicineId(), batchDTO.getQuantity());
@@ -50,6 +51,7 @@ public class MedicineInventoryServiceImpl implements MedicineInventoryService {
     }
 
     @Override
+    @Transactional
     public MedicineInventoryDTO updateMedicineBatch(MedicineInventoryDTO batchDTO) throws HmsException {
 
         MedicineInventory existsInInventory = medicineInventoryRepository.findById(batchDTO.getId())
@@ -61,7 +63,7 @@ public class MedicineInventoryServiceImpl implements MedicineInventoryService {
         // Correction: They meant to type 150 boxes.
         if (existsInInventory.getInitialQuantity() < batchDTO.getQuantity()) {
             medicineService.addStock(batchDTO.getMedicineId(),
-                    batchDTO.getQuantity() - existsInInventory.getQuantity());
+                    batchDTO.getQuantity() - existsInInventory.getInitialQuantity());
         }
         // Scenario B: The pharmacist typed too much.
         // Mistake: They typed 100 boxes originally.
@@ -85,11 +87,13 @@ public class MedicineInventoryServiceImpl implements MedicineInventoryService {
     }
 
     @Override
+    @Transactional
     public void deleteBatch(Long id) throws HmsException {
         medicineInventoryRepository.deleteById(id);
     }
 
     @Override
+    @Transactional
     @Scheduled(cron = "0 10 0 * * ?")
     // Means here every day at 12:10 am system will automatically check for the
     // expired medicines and mark them as expired

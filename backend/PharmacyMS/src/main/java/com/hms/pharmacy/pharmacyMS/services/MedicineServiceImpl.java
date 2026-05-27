@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hms.pharmacy.pharmacyMS.dto.MedicineDTO;
 import com.hms.pharmacy.pharmacyMS.entity.Medicine;
@@ -20,6 +21,7 @@ public class MedicineServiceImpl implements MedicineService{
     private final MedicineRepository medicineRepository;
 
     @Override
+    @Transactional
     public Long addMedicine(MedicineDTO medicineDTO) throws HmsException {
         Optional<Medicine> optional = medicineRepository.findByNameIgnoreCaseAndDosageIgnoreCase(medicineDTO.getName(), medicineDTO.getDosage());
         if (optional.isPresent()) {
@@ -36,6 +38,7 @@ public class MedicineServiceImpl implements MedicineService{
     }
 
     @Override
+    @Transactional
     public void updateMedicine(MedicineDTO medicineDTO) throws HmsException {
         Medicine existingMedicine = medicineRepository.findById(medicineDTO.getId())
                 .orElseThrow(() -> new HmsException("MEDICINE_NOT_FOUND"));
@@ -67,6 +70,7 @@ public class MedicineServiceImpl implements MedicineService{
     }
 
     @Override
+    @Transactional
     public Integer addStock(Long id, Integer quantity) throws HmsException {
         Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
         medicine.setStock(medicine.getStock() != null? medicine.getStock() + quantity : quantity );
@@ -75,6 +79,7 @@ public class MedicineServiceImpl implements MedicineService{
     }
 
     @Override
+    @Transactional
     public Integer removeStock(Long id, Integer quantity) throws HmsException {
         Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
         // if medicine is not found throw exception
