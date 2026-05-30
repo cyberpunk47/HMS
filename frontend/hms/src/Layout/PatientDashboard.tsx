@@ -1,16 +1,19 @@
-import Header from '../Components/Header/Header'
-import { Outlet } from 'react-router-dom'
-import Sidebar from '../Components/Patient/Sidebar/Sidebar'
+import { Outlet } from "react-router-dom";
+import Header from "../Components/Header/Header"; 
+import Sidebar from "../Components/Patient/Sidebar/Sidebar";
+import { useMediaQuery } from "@mantine/hooks";
+
 const PatientDashboard = () => {
+    const matches = useMediaQuery('(max-width: 768px)');
     return (
-        <div className='flex'>
-            <Sidebar />
-            <div className='w-full overflow-hidden flex flex-col'>
-                <Header />
-                <Outlet />
+         <div className="flex">
+               {!matches && <Sidebar />}
+                <div className="w-full overflow-hidden flex flex-col"> 
+                    <Header />
+                    <Outlet />
+                </div>
             </div>
-        </div>
     )
 }
 
-export default PatientDashboard
+export default PatientDashboard;

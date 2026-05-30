@@ -13,7 +13,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional
 public class MedicineServiceImpl implements MedicineService {
-    
     private final MedicineRepository medicineRepository;
 
     @Override
@@ -23,18 +22,16 @@ public class MedicineServiceImpl implements MedicineService {
 
     @Override
     public List<MedicineDTO> saveAllMedicines(List<MedicineDTO> requestList) {
-        return ((List<Medicine>) medicineRepository.saveAll(
-                requestList.stream().map(MedicineDTO::toEntity).toList()))
-                .stream()
-                .map(Medicine::toDTO)
-                .toList();
+        return ((List<Medicine>) medicineRepository.saveAll(requestList.stream().map(MedicineDTO::toEntity).toList())).stream().map(Medicine::toDTO).toList();
     }
 
     @Override
     public List<MedicineDTO> getAllMedicinesByPrescriptionId(Long prescriptionId) {
-        return medicineRepository.findAllByPrescription_Id(prescriptionId)
-                .stream()
-                .map(Medicine::toDTO)
-                .toList();
+        return medicineRepository.findAllByPrescription_id(prescriptionId).stream().map(Medicine::toDTO).toList();
+    }
+
+    @Override
+    public List<MedicineDTO> getMedicinesByPrescriptionIds(List<Long> ids) {
+        return medicineRepository.findAllByPrescription_idIn(ids).stream().map(Medicine::toDTO).toList();
     }
 }

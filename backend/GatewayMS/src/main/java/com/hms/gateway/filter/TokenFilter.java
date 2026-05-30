@@ -21,7 +21,7 @@ public class TokenFilter extends AbstractGatewayFilterFactory<TokenFilter.Config
     public GatewayFilter apply(Config config){
         return (exchange, chain) ->{
             String path = exchange.getRequest().getPath().toString();
-            if(path.equals("/user/login") || path.equals("/user/register")){
+            if(path.equals("/user/login") || path.equals("/user/register") || path.equals("/users/login") || path.equals("/users/register")){
 
                 return chain.filter(exchange.mutate().request(r->r.header("X-Secret-Key", "SECRET")).build());
             }
@@ -32,14 +32,14 @@ public class TokenFilter extends AbstractGatewayFilterFactory<TokenFilter.Config
                 throw new RuntimeException("Authentication header is missing");
             }
             String authHeader = header.getFirst(org.springframework.http.HttpHeaders.AUTHORIZATION);
-            if(authHeader==null || !authHeader.startsWith("Bearer")){
+            if(authHeader==null || !authHeader.toLowerCase().startsWith("bearer")){
                 throw new RuntimeException("Authorization header is invalid");
             }
             String token = authHeader.substring(7);
 
             try{
                 Claims claim = Jwts.parser().setSigningKey(SECRET).parseClaimsJws(token).getBody();
-                exchange = exchange.mutate().request(r->r.header("X-User-Id", "SECRET")).build();
+                exchange = exchange.mutate().request(r->r.header("X-User-Id", "SECRET").header("X-Secret-Key", "SECRET")).build();
 
 
             }

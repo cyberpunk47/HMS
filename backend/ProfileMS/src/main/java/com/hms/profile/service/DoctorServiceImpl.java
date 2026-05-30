@@ -1,28 +1,29 @@
 package com.hms.profile.service;
 
-import java.util.List;
+import com.hms.profile.dto.DoctorDropdown;
+import com.hms.profile.entity.Doctor;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.hms.profile.dto.DoctorDTO;
-import com.hms.profile.dto.DoctorDropdown;
 import com.hms.profile.exception.HmsException;
 import com.hms.profile.repository.DoctorRepository;
 
+import java.util.List;
+
 @Service
 public class DoctorServiceImpl implements DoctorService {
-
     @Autowired
     private DoctorRepository doctorRepository;
 
     @Override
-    public Long addDoctor(DoctorDTO DoctorDTO) throws HmsException {
-        if (DoctorDTO.getEmail() != null && doctorRepository.findByEmail(DoctorDTO.getEmail()).isPresent())
+    public Long addDoctor(DoctorDTO doctorDTO) throws HmsException {
+        if (doctorDTO.getEmail() != null && doctorRepository.findByEmail(doctorDTO.getEmail()).isPresent())
             throw new HmsException("DOCTOR_ALREADY_EXISTS");
-        if (DoctorDTO.getLicenseNo() != null && doctorRepository.findBylicenseNo(DoctorDTO.getLicenseNo()).isPresent())
+        if (doctorDTO.getLicenseNo() != null && doctorRepository.findBylicenseNo(doctorDTO.getLicenseNo()).isPresent())
             throw new HmsException("DOCTOR_ALREADY_EXISTS");
-        return doctorRepository.save(DoctorDTO.toEntity()).getId();
+        return doctorRepository.save(doctorDTO.toEntity()).getId();
     }
 
     @Override
@@ -45,9 +46,14 @@ public class DoctorServiceImpl implements DoctorService {
     public List<DoctorDropdown> getDoctorDropdowns() throws HmsException {
         return doctorRepository.findAllDoctorDropdowns();
     }
-    
+
     @Override
-    public List<DoctorDropdown> getDoctorNamesByIds(List<Long> ids) throws HmsException {
+    public List<DoctorDropdown> getDoctorsById(List<Long> ids) throws HmsException {
         return doctorRepository.findAllDoctorDropdownsByIds(ids);
+    }
+
+    @Override
+    public List<DoctorDTO> getAllDoctors() throws HmsException {
+        return ((List<Doctor>) doctorRepository.findAll()).stream().map(Doctor::toDTO).toList();
     }
 }

@@ -1,23 +1,22 @@
 package com.hms.appointment.service;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.hms.appointment.clients.ProfileClient;
-import com.hms.appointment.dto.AppointmentDTO;
-import com.hms.appointment.dto.AppointmentDetails;
-import com.hms.appointment.dto.DoctorDTO;
-import com.hms.appointment.dto.PatientDTO;
-import com.hms.appointment.dto.Status;
+import com.hms.appointment.dto.*;
 import com.hms.appointment.entity.Appointment;
 import com.hms.appointment.exception.HmsException;
 import com.hms.appointment.repository.AppointmentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 @Service
 public class AppointmentServiceImpl implements AppointmentService {
-
     @Autowired
     private AppointmentRepository appointmentRepository;
 
@@ -28,9 +27,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     private ProfileClient profileClient;
 
     @Override
+    @Transactional
     public Long scheduleAppointment(AppointmentDTO appointmentDTO) throws HmsException {
         Boolean doctorExists = profileClient.doctorExists(appointmentDTO.getDoctorId());
-
         if (doctorExists == null || !doctorExists) {
             throw new HmsException("DOCTOR_NOT_FOUND");
         }
@@ -39,32 +38,76 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (patientExists == null || !patientExists) {
             throw new HmsException("PATIENT_NOT_FOUND");
         }
-
+        if (appointmentDTO.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new HmsException("APPOINTMENT_TIME_IS_IN_PAST");
+        }
+        if (appointmentRepository.existsByDoctorIdAndAppointmentTime(appointmentDTO.getDoctorId(),
+                appointmentDTO.getAppointmentTime())) {
+            throw new HmsException("DOCTOR_ALREADY_HAVE_APPOINTMENT_AT_THIS_TIME");
+        }
+        if (appointmentRepository.existsByPatientIdAndAppointmentTime(appointmentDTO.getPatientId(),
+                appointmentDTO.getAppointmentTime())) {
+            throw new HmsException("PATIENT_ALREADY_HAVE_APPOINTMENT_AT_THIS_TIME");
+        }
         appointmentDTO.setStatus(Status.SCHEDULED);
         return appointmentRepository.save(appointmentDTO.toEntity()).getId();
     }
 
     @Override
+    @Transactional
     public void cancelAppointment(Long appointmentId) throws HmsException {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+
         if (appointment.getStatus().equals(Status.CANCELLED)) {
             throw new HmsException("APPOINTMENT_ALREADY_CANCELLED");
+        }
+        if (appointment.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new HmsException("CANNOT_CANCEL_APPOINTMENT_TIME_IS_IN_PAST");
         }
         appointment.setStatus(Status.CANCELLED);
         appointmentRepository.save(appointment);
     }
 
     @Override
-    public void completeAppointment(Long appointmentId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'completeAppointment'");
+    @Transactional
+    public AppointmentDTO completeAppointment(Long appointmentId) throws HmsException {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+        if (appointment.getStatus() != Status.SCHEDULED) {
+            throw new HmsException("ONLY_SCHEDULED_CAN_BE_COMPLETED");
+        }
+        if (appointment.getAppointmentTime().isAfter(LocalDateTime.now().plusHours(1))) {
+            throw new HmsException("CANNOT_COMPLETE_FUTURE_APPOINTMENT");
+        }
+        appointment.setStatus(Status.COMPLETED);
+        appointmentRepository.save(appointment);
+        return appointment.toDTO();
     }
 
     @Override
-    public void rescheduleAppointment(Long appointmentId, String newDateTime) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'rescheduleAppointment'");
+    public AppointmentDTO rescheduleAppointment(Long appointmentId, String newDateTime) throws HmsException {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+        if (appointment.getStatus() != Status.SCHEDULED) {
+            throw new HmsException("ONLY_SCHEDULED_CAN_BE_RESCHEDULED");
+        }
+
+        LocalDateTime parsedDateTime = LocalDateTime.parse(newDateTime);
+
+        // BUG-07 Fix equivalent: Cannot reschedule to a past date
+        if (parsedDateTime.isBefore(LocalDateTime.now())) {
+            throw new HmsException("CANNOT_RESCHEDULE_TO_PAST_DATE");
+        }
+
+        // BUG-08 Fix: Overlap Check
+        if (appointmentRepository.existsByDoctorIdAndAppointmentTime(appointment.getDoctorId(), parsedDateTime)) {
+            throw new HmsException("DOCTOR_NOT_AVAILABLE_AT_THIS_TIME");
+        }
+
+        appointment.setAppointmentTime(parsedDateTime);
+        return appointmentRepository.save(appointment).toDTO();
+
     }
 
     @Override
@@ -75,32 +118,103 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public AppointmentDetails getAppointmentDetailsWithName(Long appointmentId) throws HmsException {
-        AppointmentDTO appointmentDTO = appointmentRepository.findById(appointmentId).orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND")).toDTO();
-
+        AppointmentDTO appointmentDTO = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND")).toDTO();
         DoctorDTO doctorDTO = profileClient.getDoctorById(appointmentDTO.getDoctorId());
         PatientDTO patientDTO = profileClient.getPatientById(appointmentDTO.getPatientId());
-
-        return new AppointmentDetails(appointmentDTO.getId(),appointmentDTO.getPatientId(), patientDTO.getName(), patientDTO.getPhone(), patientDTO.getEmail(), appointmentDTO.getDoctorId(), doctorDTO.getName(), appointmentDTO.getAppointmentTime(), appointmentDTO.getStatus() , appointmentDTO.getReason(), appointmentDTO.getNotes());
+        return new AppointmentDetails(appointmentDTO.getId(), appointmentDTO.getPatientId(), patientDTO.getName(),
+                patientDTO.getEmail(), patientDTO.getPhone(), appointmentDTO.getDoctorId(), doctorDTO.getName(),
+                appointmentDTO.getAppointmentTime(), appointmentDTO.getStatus(), appointmentDTO.getReason(),
+                appointmentDTO.getNotes());
     }
 
     @Override
     public List<AppointmentDetails> getAllAppointmentsByPatientId(Long patientId) throws HmsException {
-        return appointmentRepository.findAllByPatientId(patientId).stream().map(appointment -> {
-            DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
-            appointment.setDoctorName(doctorDTO.getName());
-            return appointment;
-        }).toList();
+        return appointmentRepository.findAllByPatientId(patientId).stream()
+                .map(appointment -> {
+                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                    appointment.setDoctorName(doctorDTO.getName());
+                    return appointment;
+                }).toList();
     }
 
     @Override
     public List<AppointmentDetails> getAllAppointmentsByDoctorId(Long doctorId) throws HmsException {
-        return appointmentRepository.findAllByDoctorId(doctorId).stream().map(appointment -> {
-            PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
-            appointment.setPatientName(patientDTO.getName());
-            appointment.setPatientEmail(patientDTO.getEmail());
-            appointment.setPatientPhone(patientDTO.getPhone());
-            return appointment;
-        }).toList();
+        return appointmentRepository.findAllByDoctortId(doctorId).stream()
+                .map(appointment -> {
+                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                    appointment.setPatientName(patientDTO.getName());
+                    appointment.setPatientEmail(patientDTO.getEmail());
+                    appointment.setPatientPhone(patientDTO.getPhone());
+                    return appointment;
+                }
+
+                ).toList();
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCountByPatient(Long patientId) throws HmsException {
+        return appointmentRepository.countCurrentYearVisitsByPatient(patientId);
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCountByPatient(Long patientId) {
+        return appointmentRepository.countReasonsByPatientId(patientId);
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCountByDoctor(Long doctorId) throws HmsException {
+        return appointmentRepository.countCurrentYearVisitsByDoctor(doctorId);
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCounts() throws HmsException {
+        return appointmentRepository.countCurrentYearVisits();
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCountByDoctor(Long doctorId) {
+        return appointmentRepository.countReasonsByDoctorId(doctorId);
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCount() {
+        return appointmentRepository.countReasons();
+    }
+
+    @Override
+    public List<AppointmentDetails> getTodaysAppointments() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+        return appointmentRepository.findByAppointmentTimeBetween(startOfDay, endOfDay).stream().map(
+                appointment -> {
+                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                    return new AppointmentDetails(appointment.getId(), appointment.getPatientId(), patientDTO.getName(),
+                            patientDTO.getEmail(), patientDTO.getPhone(), appointment.getDoctorId(),
+                            doctorDTO.getName(), appointment.getAppointmentTime(), appointment.getStatus(),
+                            appointment.getReason(), appointment.getNotes());
+                }).toList();
+    }
+
+    // Cron Job
+    @Override
+    @Scheduled(cron = "0 0 * * * ?") // Runs at the top of every hour
+    @Transactional
+    public void markExpiredAppointments() {
+        // Find all SCHEDULED appointments where the time is older than right now
+        List<Appointment> expiredAppointments = appointmentRepository
+                .findByStatusAndAppointmentTimeBefore(Status.SCHEDULED, LocalDateTime.now());
+
+        for (Appointment appt : expiredAppointments) {
+            appt.setStatus(Status.EXPIRED);
+        }
+
+        // Save them all in one batch
+        if (!expiredAppointments.isEmpty()) {
+            appointmentRepository.saveAll(expiredAppointments);
+        }
     }
 
 }

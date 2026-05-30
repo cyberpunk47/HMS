@@ -1,17 +1,15 @@
-import axios, {InternalAxiosRequestConfig} from "axios";
-
-
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 const axiosInstance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || "http://localhost:9000",
+    baseURL: "http://localhost:9000"
 })
+
 axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+        // console.log("interceptor: ", config)
         const token = localStorage.getItem("token");
         if(token && config.headers){
-            config.headers.Authorization = `Bearer ${token}`;
+            config.headers.Authorization = `Bearer ${token}`
         }
-        config.headers["X-Secret-Key"] = "SECRET";
-
         return config;
     }
 )

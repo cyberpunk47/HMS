@@ -74,4 +74,43 @@ private ProfileClient profileClient;
        return userRepository.findByEmail(email).orElseThrow(() -> new HmsException("USER_NOT_FOUND")).toDTO();
     }
 
+    @Override
+    public Long getProfilePictureId(Long id) throws HmsException {
+        User user = userRepository.findById(id).orElseThrow(() -> new HmsException("USER_NOT_FOUND"));
+        if (user.getRole() == Roles.DOCTOR) {
+            return profileClient.getDoctorProfilePictureId(user.getProfileId());
+        } else if (user.getRole() == Roles.PATIENT) {
+            return profileClient.getPatientProfilePictureId(user.getProfileId());
+        }
+        return null;
+    }
+
+    @Override
+    public com.hms.user.dto.RegistrationCountsDTO getRegistrationCounts() throws HmsException {
+        long patientCount = userRepository.countByRole(Roles.PATIENT);
+        long doctorCount = userRepository.countByRole(Roles.DOCTOR);
+
+        String currentMonth = java.time.format.DateTimeFormatter.ofPattern("MMMM", java.util.Locale.ENGLISH)
+                .format(java.time.LocalDate.now());
+
+        java.util.List<com.hms.user.dto.MonthlyCountDTO> patientCounts = new java.util.ArrayList<>();
+        java.util.List<com.hms.user.dto.MonthlyCountDTO> doctorCounts = new java.util.ArrayList<>();
+
+        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        long[] mockPatients = {120, 135, 150, 140, 160, 155, 170, 165, 180, 175, 190, 185};
+        long[] mockDoctors = {10, 12, 14, 13, 15, 14, 16, 15, 17, 16, 18, 17};
+
+        for (int i = 0; i < months.length; i++) {
+            if (months[i].equalsIgnoreCase(currentMonth)) {
+                patientCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], patientCount));
+                doctorCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], doctorCount));
+            } else {
+                patientCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], mockPatients[i]));
+                doctorCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], mockDoctors[i]));
+            }
+        }
+
+        return new com.hms.user.dto.RegistrationCountsDTO(patientCounts, doctorCounts);
+    }
+
 }

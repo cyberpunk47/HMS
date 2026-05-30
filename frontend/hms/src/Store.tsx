@@ -3,8 +3,8 @@ import jwtReducer from "./Slices/JwtSlice";
 import userReducer from "./Slices/UserSlice";
 
 export default configureStore({
-    reducer:{
+    reducer: {
         jwt: jwtReducer,
-        user: userReducer
+        user: userReducer,
     }
-})
+});

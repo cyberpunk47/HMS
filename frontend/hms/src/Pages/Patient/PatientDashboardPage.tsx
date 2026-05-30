@@ -1,9 +1,11 @@
-import Dashboard from '../../Components/Patient/Dashboard/Dashboard'
+import Dashboard from "../../Components/Patient/Dashboard/Dashboard"
 
 const PatientDashboardPage = () => {
-  return (
-    <div><Dashboard /></div>
-  )
+    return (
+        <div className="p-5">
+            <Dashboard />
+        </div>
+    )
 }
 
-export default PatientDashboardPage
+export default PatientDashboardPage;

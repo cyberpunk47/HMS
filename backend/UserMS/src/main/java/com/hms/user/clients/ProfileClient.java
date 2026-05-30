@@ -17,4 +17,10 @@ public interface ProfileClient {
 
     @PostMapping("/profile/patient/add")
     Long addPatient(@RequestBody UserDTO userDTO);
+
+    @org.springframework.web.bind.annotation.GetMapping("/profile/doctor/getProfileId/{id}")
+    Long getDoctorProfilePictureId(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.GetMapping("/profile/patient/getProfileId/{id}")
+    Long getPatientProfilePictureId(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 }

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.hms.appointment.dto.BloodGroup;
 
 @Data
 @AllArgsConstructor
@@ -20,6 +21,5 @@ public class PatientDTO {
     private BloodGroup bloodGroup;
     private String gender;
     private String allergies;
-    private String chronicDisease;
-
+    private String chronicDesease;
 }

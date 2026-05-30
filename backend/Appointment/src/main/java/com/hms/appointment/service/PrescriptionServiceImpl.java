@@ -2,6 +2,7 @@ package com.hms.appointment.service;
 
 import com.hms.appointment.clients.ProfileClient;
 import com.hms.appointment.dto.DoctorName;
+import com.hms.appointment.dto.MedicineDTO;
 import com.hms.appointment.dto.PrescriptionDTO;
 import com.hms.appointment.dto.PrescriptionDetails;
 import com.hms.appointment.entity.Prescription;
@@ -12,122 +13,133 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class PrescriptionServiceImpl implements PrescriptionService {
-    
+
     private final PrescriptionRepository prescriptionRepository;
+
     private final MedicineService medicineService;
+
     private final ProfileClient profileClient;
 
     @Override
     public Long savePrescription(PrescriptionDTO request) throws HmsException {
         request.setPrescriptionDate(LocalDate.now());
         Long prescriptionId = prescriptionRepository.save(request.toEntity()).getId();
-        
-        if (request.getMedicines() != null && !request.getMedicines().isEmpty()) {
+        if (request.getMedicines() != null) {
             request.getMedicines().forEach(medicine -> medicine.setPrescriptionId(prescriptionId));
             medicineService.saveAllMedicines(request.getMedicines());
         }
-        
         return prescriptionId;
     }
 
     @Override
     public void updatePrescription(PrescriptionDTO request) throws HmsException {
-        Optional<Prescription> optional = prescriptionRepository.findById(request.getId());
-        if (optional.isEmpty()) {
-            throw new HmsException("PRESCRIPTION_NOT_FOUND");
-        }
-        
+        prescriptionRepository.findById(request.getId()).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND"));
         prescriptionRepository.save(request.toEntity());
-        
-        if (request.getMedicines() != null && !request.getMedicines().isEmpty()) {
+        if (request.getMedicines() != null) {
             request.getMedicines().forEach(medicine -> medicine.setPrescriptionId(request.getId()));
             medicineService.saveAllMedicines(request.getMedicines());
         }
     }
 
     @Override
-    public PrescriptionDTO getPrescriptionById(Long id) throws HmsException {
-        Optional<Prescription> optional = prescriptionRepository.findById(id);
-        if (optional.isEmpty()) {
-            throw new HmsException("PRESCRIPTION_NOT_FOUND");
-        }
-        
-        PrescriptionDTO prescriptionDTO = optional.get().toDTO();
-        prescriptionDTO.setMedicines(medicineService.getAllMedicinesByPrescriptionId(id));
-        
+    public PrescriptionDTO getPrescriptionByAppointmentId(Long appointmentId) throws HmsException {
+        PrescriptionDTO prescriptionDTO = prescriptionRepository.findByAppointment_id(appointmentId).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND")).toDTO();
+        prescriptionDTO.setMedicines(medicineService.getAllMedicinesByPrescriptionId(prescriptionDTO.getId()));
         return prescriptionDTO;
     }
 
     @Override
-    public PrescriptionDTO getPrescriptionByAppointmentId(Long appointmentId) throws HmsException {
-        Optional<Prescription> optional = prescriptionRepository.findByAppointment_Id(appointmentId);
-        if (optional.isEmpty()) {
-            throw new HmsException("PRESCRIPTION_NOT_FOUND");
-        }
-        
-        PrescriptionDTO prescriptionDTO = optional.get().toDTO();
-        prescriptionDTO.setMedicines(medicineService.getAllMedicinesByPrescriptionId(prescriptionDTO.getId()));
-        
-        return prescriptionDTO;
+    public PrescriptionDTO getPrescriptionById(Long prescriptionId) throws HmsException {
+        PrescriptionDTO dto = prescriptionRepository.findById(prescriptionId).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND")).toDTO();
+        dto.setMedicines(medicineService.getAllMedicinesByPrescriptionId(dto.getId()));
+        return dto;
     }
 
     @Override
     public List<PrescriptionDetails> getPrescriptionsByPatientId(Long patientId) throws HmsException {
-        List<Prescription> prescriptions = prescriptionRepository.findByPatientId(patientId);
-        
-        List<Long> doctorIds = prescriptions.stream()
-                .map(Prescription::getDoctorId)
+        List<Prescription> prescriptions = prescriptionRepository.findAllByPatientId(patientId);
+        List<PrescriptionDetails> prescriptionDetails = prescriptions.stream()
+                .map(Prescription::toDetails)
+                .toList();
+        prescriptionDetails.forEach(details -> {
+            details.setMedicines(medicineService.getAllMedicinesByPrescriptionId(details.getId()));
+        });
+        List<Long> doctorsIds = prescriptionDetails.stream()
+                .map(PrescriptionDetails::getDoctorId)
                 .distinct()
                 .toList();
-        
-        List<DoctorName> doctorNames = profileClient.getDoctorNamesByIds(doctorIds);
-        Map<Long, String> doctorNameMap = doctorNames.stream()
+        List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorsIds);
+        Map<Long, String> doctorMap = doctorNames.stream()
                 .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
-        
-        List<PrescriptionDetails> result = new ArrayList<>();
-        
-        for (Prescription prescription : prescriptions) {
-            PrescriptionDetails details = prescription.toDetails();
-            details.setDoctorName(doctorNameMap.get(prescription.getDoctorId()));
-            details.setMedicines(medicineService.getAllMedicinesByPrescriptionId(prescription.getId()));
-            result.add(details);
-        }
-        
-        return result;
+        prescriptionDetails.forEach(details -> {
+            String doctorName = doctorMap.get(details.getDoctorId());
+            if (doctorName != null) {
+                details.setDoctorName(doctorName);
+            } else {
+                details.setDoctorName("Unknown Doctor");
+            }
+        });
+
+        return prescriptionDetails;
     }
+
+	@Override
+	public List<PrescriptionDetails> getPrescriptions() throws HmsException {
+		List<Prescription> prescriptions = (List<Prescription>) prescriptionRepository.findAll();
+		List<PrescriptionDetails> prescriptionDetails = prescriptions.stream()
+				.map(Prescription::toDetails)
+				.toList();
+		List<Long> doctorIds = prescriptionDetails.stream()
+				.map(PrescriptionDetails::getDoctorId)
+				.distinct()
+				.toList();
+		List<Long> patientIds = prescriptionDetails.stream()
+				.map(PrescriptionDetails::getPatientId)
+				.distinct()
+				.toList();
+		List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorIds);
+		List<DoctorName> patientNames = profileClient.getPatientsById(patientIds);
+		
+		Map<Long, String> doctorMap = doctorNames.stream()
+				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+		Map<Long, String> patientMap = patientNames.stream()
+				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+		
+		prescriptionDetails.forEach(details -> {
+            String doctorName = doctorMap.get(details.getDoctorId());
+            String patientName = patientMap.get(details.getPatientId());
+            if (doctorName != null) {
+            	details.setDoctorName(doctorName);
+            } else {
+            	details.setDoctorName("Unknown Doctor");
+            }
+            
+            if (patientName != null) {
+            	details.setPatientName(patientName);
+            }else {
+            	details.setPatientName("Unknown Patient");
+            }
+        }); 
+		
+		return prescriptionDetails;
+	}
 
     @Override
     public List<PrescriptionDetails> getAllPrescriptions() throws HmsException {
-        List<Prescription> prescriptions = (List<Prescription>) prescriptionRepository.findAll();
-        
-        List<Long> doctorIds = prescriptions.stream()
-                .map(Prescription::getDoctorId)
-                .distinct()
-                .toList();
-        
-        List<DoctorName> doctorNames = profileClient.getDoctorNamesByIds(doctorIds);
-        Map<Long, String> doctorNameMap = doctorNames.stream()
-                .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
-        
-        List<PrescriptionDetails> result = new ArrayList<>();
-        
-        for (Prescription prescription : prescriptions) {
-            PrescriptionDetails details = prescription.toDetails();
-            details.setDoctorName(doctorNameMap.get(prescription.getDoctorId()));
-            details.setMedicines(medicineService.getAllMedicinesByPrescriptionId(prescription.getId()));
-            result.add(details);
-        }
-        
-        return result;
+        return getPrescriptions();
+    }
+
+    @Override
+    public List<MedicineDTO> getMedicineByPatientId(Long patientId) throws HmsException {
+         List<Long> pids = prescriptionRepository.findAllPreIdsByPatient(patientId);
+         return medicineService.getMedicinesByPrescriptionIds(pids);
     }
 }

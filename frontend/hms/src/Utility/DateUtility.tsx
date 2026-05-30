@@ -1,27 +1,49 @@
 const formatDate = (dateString: any) => {
     if (!dateString) return undefined;
-    const date = new Date(dateString);
-    const options: Intl.DateTimeFormatOptions = {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-    return date.toLocaleDateString('en-US', options);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const date = new Date(dateString)
+    const day = date.getDate();
+    const month = months[date.getMonth()]
+    const year = date.getFullYear()
+
+    return `${day} ${month} ${year}`
 }
-const formatDateWithTime = (dateString: any) => {
-    if (!dateString) return undefined;
+
+
+const formatDateWithtimeUtil = (dateString: any) => {
+    if (!dateString) return undefined
+
     const date = new Date(dateString);
+
     const options: Intl.DateTimeFormatOptions = {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
         hour12: true,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
-    return date.toLocaleString('en-US', options);
+
+    return date.toLocaleDateString("en-Us", options)
+
 }
-export {formatDate, formatDateWithTime};
+
+const extractTimeIn12HourFormat = (dateString: any) => {
+    if (!dateString) return undefined
+
+    const date = new Date(dateString);
+
+    const options: Intl.DateTimeFormatOptions = {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: true,
+    };
+
+    return date.toLocaleTimeString("en-Us", options)
+}
+
+const formatDateWithtime = formatDateWithtimeUtil;
+
+export { formatDate, formatDateWithtime, formatDateWithtimeUtil, extractTimeIn12HourFormat }

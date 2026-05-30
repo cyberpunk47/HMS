@@ -1,22 +1,14 @@
 package com.hms.profile.entity;
 
-
 import java.time.LocalDate;
 
 import com.hms.profile.dto.BloodGroup;
 import com.hms.profile.dto.PatientDTO;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 @Data
 @NoArgsConstructor
@@ -30,6 +22,7 @@ public class Patient {
     @Column(unique = true)
     private String email;
     private LocalDate dob;
+    private Long profilePictureId;
     private String phone;
     private String address;
     @Column(unique = true)
@@ -38,10 +31,10 @@ public class Patient {
     private BloodGroup bloodGroup;
     private String gender;
     private String allergies;
-    private String chronicDisease;
-    public PatientDTO toDTO() {
-        return new PatientDTO(this.id, this.name, this.email, this.dob, this.phone, this.address, this.aadharNo,
-                this.bloodGroup, this.gender, this.allergies, this.chronicDisease);
+    private String chronicDesease;
 
+    public PatientDTO toDTO() {
+        return new PatientDTO(this.id, this.name, this.email, this.dob, this.profilePictureId, this.phone, this.address, this.aadharNo,
+                this.bloodGroup, this.gender, this.allergies, this.chronicDesease);
     }
 }

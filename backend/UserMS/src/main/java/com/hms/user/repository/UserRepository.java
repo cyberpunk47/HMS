@@ -12,5 +12,6 @@ import com.hms.user.entity.User;
 public interface UserRepository extends CrudRepository<User  , Long> {
 
     Optional<User> findByEmail(String email);
+    long countByRole(com.hms.user.dto.Roles role);
 
 }

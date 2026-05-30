@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 
 @RestController
-@RequestMapping("/user")
+@RequestMapping({"/user", "/users"})
 @Validated
 @CrossOrigin
 
@@ -66,6 +66,16 @@ public class UserAPI {
     @GetMapping("/test")
     public ResponseEntity<String> test() {
         return new ResponseEntity<>("Test", HttpStatus.OK);
+    }
+
+    @GetMapping("/getProfile/{id}")
+    public ResponseEntity<Long> getProfile(@org.springframework.web.bind.annotation.PathVariable Long id) throws HmsException {
+        return new ResponseEntity<>(userService.getProfilePictureId(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/getRegistrationCounts")
+    public ResponseEntity<com.hms.user.dto.RegistrationCountsDTO> getRegistrationCounts() throws HmsException {
+        return new ResponseEntity<>(userService.getRegistrationCounts(), HttpStatus.OK);
     }
     
 }

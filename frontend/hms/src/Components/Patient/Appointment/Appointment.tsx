@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FilterMatchMode, FilterOperator } from 'primereact/api';
-import { DataTable, DataTableFilterMeta } from 'primereact/datatable';
+import { DataTable, type DataTableFilterMeta } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 
 import { Tag } from 'primereact/tag';
@@ -10,14 +10,18 @@ import { useDisclosure } from '@mantine/hooks';
 import { getDoctorDropdown } from '../../../Service/DoctorProfileService';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import { appointmentReasons } from '../../../Data/DropdownData';
+import { appointmentReasons } from '../../../data/DropdownData';
 import { useSelector } from 'react-redux';
 import { cancelAppointment, getAppointmentsByPatient, scheduleAppointment } from '../../../Service/AppointmentService';
 import { errorNotification, successNotification } from '../../../Utility/NotificationUtil';
-import { formatDateWithTime } from '../../../Utility/DateUtility';
+import { formatDateWithtime } from '../../../Utility/DateUtility';
 import { modals } from '@mantine/modals';
 import { Toolbar } from 'primereact/toolbar';
 import { IconEdit, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+// extend dayjs with utc plugin
+dayjs.extend(utc);
 // import 'primereact/resources/themes/lara-light-blue/theme.css';
 
 interface Country {
@@ -189,12 +193,15 @@ const Appointment = () => {
     const header = renderHeader();
 
     const handleSubmit = (values: any) => {
-        values.appointmentTime = new Date(values.appointmentTime).toISOString();
-        console.log(values);
+        const formattedValues = {
+            ...values,
+            appointmentTime: dayjs(values.appointmentTime).format("YYYY-MM-DDTHH:mm:ss")
+        };
+        console.log(formattedValues);
         form.validate();
         fetchData();
         setLoading(true);
-        scheduleAppointment(values).then((data) => {
+        scheduleAppointment(formattedValues).then((data) => {
             close();
             form.reset();
             successNotification("Appointment scheduled successfully");
@@ -207,7 +214,7 @@ const Appointment = () => {
     };
 
     const timeTemplate = (rowData: any) => {
-        return <span>{formatDateWithTime(rowData.appointmentTime)}</span>
+        return <span>{formatDateWithtime(rowData.appointmentTime)}</span>
     }
     const leftToolbarTemplate = () => {
         return (

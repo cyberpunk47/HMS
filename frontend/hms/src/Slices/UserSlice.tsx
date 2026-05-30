@@ -1,22 +1,21 @@
-import { createSlice } from "@reduxjs/toolkit";
+import {createSlice} from "@reduxjs/toolkit";
 import { jwtDecode } from "jwt-decode";
 
-
 const userSlice = createSlice({
-    name: "User",
-    initialState: localStorage.getItem("token") ? jwtDecode(localStorage.getItem("token") || '') : {},
-    reducers: {
-        setUser: (state, action) => {
-            
+    name: "user",
+    initialState: localStorage.getItem("token")? jwtDecode(localStorage.getItem("token")|| "") : {},
+    reducers:{
+        setUser: (state, action)=>{ 
             state = action.payload;
             return state;
         },
-        removeUser: (state) => {
+        removeUser: (state) => { 
             state = {};
             return state;
         }
     }
+
 })
 
-export const { removeUser, setUser } = userSlice.actions;
+export const {setUser, removeUser} = userSlice.actions;
 export default userSlice.reducer;

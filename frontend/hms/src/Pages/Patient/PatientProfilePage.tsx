@@ -1,10 +1,11 @@
-import React from 'react'
-import Profile from '../../Components/Patient/Profile/Profile'
+import Profile from "../../Components/Patient/Profile/Profile";
 
 const PatientProfilePage = () => {
-  return (
-    <div><Profile/></div>
-  )
+    return (
+        <div>
+            <Profile />
+        </div>
+    )
 }
 
-export default PatientProfilePage
+export default PatientProfilePage;

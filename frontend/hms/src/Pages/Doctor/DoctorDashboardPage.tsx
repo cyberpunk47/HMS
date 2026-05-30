@@ -1,9 +1,11 @@
-import Dashboard from '../../Components/Doctor/Dashboard/Dashboard'
+import Dashboard from "../../Components/Doctor/Dashboard/Dashboard"
 
-const DoctorDashboardPage = () => {
-  return (
-    <div><Dashboard /></div>
-  )
+const DoctorDashboardPage = ()=> {
+    return (
+        <div className="p-5">
+            <Dashboard />
+        </div>
+    )
 }
-
-export default DoctorDashboardPage
+ 
+export default DoctorDashboardPage;

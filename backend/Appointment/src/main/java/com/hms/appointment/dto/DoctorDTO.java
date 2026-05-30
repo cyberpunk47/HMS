@@ -2,7 +2,6 @@ package com.hms.appointment.dto;
 
 import java.time.LocalDate;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

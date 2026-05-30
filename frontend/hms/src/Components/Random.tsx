@@ -1,9 +1,9 @@
-import React from 'react'
-
 const Random = () => {
-  return (
-    <div>Random</div>
-  )
+    return  (
+        <div className="">
+            random
+        </div>
+    )
 }
 
-export default Random
+export default Random;
