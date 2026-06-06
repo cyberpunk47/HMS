@@ -1,49 +1,76 @@
-import { ScrollArea } from '@mantine/core';
-import { medicines } from '../../../data/DashboardData';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import { getAllMedicines } from '../../../Service/MedicineService';
-// import { Medicines } from '../../../data/DashboardData';
+import { Pill } from 'lucide-react';
 
 const Medicines = () => {
-    const [data, setData] = useState<any[]>(medicines)
-    useEffect(() => {
-            fetchData();
-        }, [])
-    
-        const fetchData = () => {
-            getAllMedicines().then((res) => {
-                // console.log(res)
-                setData(res);
-            }).catch((err) => {
-                console.error("error fetching reports: ", err);
-            })
-    
-            
-        }
-    const card = (app: any) => {
-        return <div className={`p-3 mb-3 border rounded-xl justify-between border-l-4 border-orange-500 shadow-md flex bg-orange-100`}>
-            <div>
-                <div className='font-semibold'>{app.name}</div>
-                <div className='text-xs text-gray-500'>{app.manufacturer}</div>
-            </div>
-            <div className='text-right'>
-                <div className='font-medium'>{app.dosage}</div>
-                <div className='text-xs text-gray-500'>Stock: {app.stock}</div>
-            </div>
-        </div>
-    }
+    const [data, setData] = useState<any[]>([]);
 
+    useEffect(() => {
+        getAllMedicines()
+            .then((res) => {
+                setData(res);
+            })
+            .catch((err) => {
+                console.error("error fetching medicines: ", err);
+            });
+    }, []);
+
+    const lowStockMeds = data.filter((m) => m.stock < 20);
 
     return (
-        <div className="p-3 border rounded-xl bg-orange-50 shadow-xl flex flex-col gap-3">
-            <div className='text-xl font-semibold'>Medicines</div>
-            <div>
-                <ScrollArea.Autosize mah={300} mx="auto">
-                    {data.map((app) => card(app))}
-                </ScrollArea.Autosize>
-            </div>
-        </div>
-    )
-}
+        <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Medicines</CardTitle>
+                        <CardDescription>Inventory overview</CardDescription>
+                    </div>
+                    {lowStockMeds.length > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                            {lowStockMeds.length} low stock
+                        </Badge>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+                {data.length > 0 ? (
+                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+                        {data.map((med, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                                        <Pill className="h-4 w-4 text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">{med.name}</p>
+                                        <p className="text-xs text-gray-500">{med.manufacturer}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-700">{med.dosage}</p>
+                                    <Badge
+                                        variant={med.stock < 20 ? "destructive" : "secondary"}
+                                        className="text-[10px] mt-0.5"
+                                    >
+                                        Stock: {med.stock}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-12 text-center text-sm text-gray-400">
+                        No medicines found
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
 
 export default Medicines;

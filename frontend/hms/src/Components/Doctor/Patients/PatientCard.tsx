@@ -54,7 +54,7 @@ const PatientCard = ({ name, email, dob, phone, id, address, aadharNo, bloodGrou
                 <IconMapPin className="text-xs text-primary-700 bg-primary-100 p-1 rounded-full flex-shrink-0" size={24} />
                 <div className="truncate text-gray-700">{address || "No Address"}</div>
             </div>
-            
+
             <div className="flex text-xs items-center gap-3">
                 <IconCalendarHeart className="text-xs text-primary-700 bg-primary-100 p-1 rounded-full flex-shrink-0" size={24} />
                 <div className="text-gray-700">{getAge(dob)}</div>
@@ -64,16 +64,4 @@ const PatientCard = ({ name, email, dob, phone, id, address, aadharNo, bloodGrou
 }
 
 export default PatientCard;
-
-/*
-aadharNo: null
-address: null
-allergies: null
-bloodGroup: null
-chronicDesease: null 
-dob: null 
-email: "diya@ex.com" 
-id: 1 
-name: "Diya" 
-phone: null
-*/
+//

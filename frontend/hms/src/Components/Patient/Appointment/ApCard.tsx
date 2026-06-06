@@ -59,16 +59,4 @@ const ApCard = ({ id, doctorName, doctorId, notes, reason, status, appointmentTi
 }
 
 export default ApCard
-
-/*
-aadharNo: null
-address: null
-allergies: null
-bloodGroup: null
-chronicDesease: null 
-dob: null 
-email: "diya@ex.com" 
-id: 1 
-name: "Diya" 
-phone: null
-*/
+//

@@ -12,6 +12,9 @@ import AppRoutes from './Routes/AppRoutes'
 import Store from './Store';
 import { PrimeReactProvider } from 'primereact/api';
 import { ModalsProvider } from '@mantine/modals';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// Tanstack query client setup
+const queryClient = new QueryClient();
 
 
 const theme = createTheme({
@@ -38,6 +41,7 @@ function App() {
   return (
     <>
       <Provider store={Store}>
+        <QueryClientProvider client={queryClient}>
         <MantineProvider theme={theme} forceColorScheme='light'>
           <ModalsProvider>
             <PrimeReactProvider>
@@ -46,6 +50,7 @@ function App() {
             </PrimeReactProvider>
           </ModalsProvider>
         </MantineProvider>
+        </QueryClientProvider>
       </Provider>
     </>
   )

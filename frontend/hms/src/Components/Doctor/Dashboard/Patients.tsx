@@ -1,45 +1,79 @@
-import { ScrollArea } from '@mantine/core';
-import { patients } from '../../../data/DashboardData'; 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useEffect, useState } from 'react';
 import { getAllPatients } from '../../../Service/PatientProfileService';
 import { bloodGroupMap } from '../../../data/DropdownData';
 
 const Patients = () => {
-    const [patients, setPatients] = useState<any[]>([])
-        
-            useEffect(()=>{
-                getAllPatients().then((data) =>{
-                    // console.log(data)
-                    setPatients(data)
-                }).catch((error) =>{
-                    console.log(error)
-                })
-            },[])
+    const [patients, setPatients] = useState<any[]>([]);
 
-    const card = (app: any) => {
-        return <div className={`p-3 mb-3 border rounded-xl justify-between border-l-4 border-red-500 shadow-md flex bg-red-100`}>
-             <div>
-                <div className='font-semibold'>{app.name}</div>
-                <div className='text-sm text-gray-500'>{app.email}</div>
-            </div>
-            <div className='text-right'>
-                <div className='text-sm text-gray-500'>{app.address}</div>
-                <div className='text-sm text-gray-500'>Blood Group: {bloodGroupMap[app.bloodGroup]}</div>
-            </div>
-        </div>
-    }
-
+    useEffect(() => {
+        getAllPatients()
+            .then((data) => {
+                setPatients(data);
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+    }, []);
 
     return (
-        <div className="p-3 border rounded-xl bg-red-50 shadow-xl flex flex-col gap-3">
-            <div className='text-xl font-semibold'>Patients</div>
-            <div>
-                <ScrollArea.Autosize mah={300} mx="auto">
-                    {patients.map((app) => card(app))}
-                </ScrollArea.Autosize>
-            </div>
-        </div>
-    )
-}
+        <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Patients</CardTitle>
+                        <CardDescription>All registered patients</CardDescription>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                        {patients.length} total
+                    </Badge>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {patients.length > 0 ? (
+                    <div className="max-h-[300px] overflow-y-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Address</TableHead>
+                                    <TableHead>Blood Group</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {patients.map((pt, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{pt.name}</TableCell>
+                                        <TableCell className="text-gray-500">{pt.email}</TableCell>
+                                        <TableCell className="text-gray-500">{pt.address}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="text-xs">
+                                                {bloodGroupMap[pt.bloodGroup]}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className="py-12 text-center text-sm text-gray-400">
+                        No patients found
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
 
 export default Patients;

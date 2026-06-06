@@ -36,16 +36,4 @@ const ReportCard = ({ id, appointmentId, doctorName, notes, createdAt, diagnosis
 }
 
 export default ReportCard
-
-/*
-aadharNo: null
-address: null
-allergies: null
-bloodGroup: null
-chronicDesease: null 
-dob: null 
-email: "diya@ex.com" 
-id: 1 
-name: "Diya" 
-phone: null
-*/
+//

@@ -26,6 +26,7 @@ import DoctorPharmacyPage from "../Pages/Doctor/DoctorPharmacyPage";
 
 import { useSelector } from "react-redux";
 import { jwtDecode } from "jwt-decode";
+import DashboardPage from "@/testing";
 
 const RootRedirect = () => {
     const token = useSelector((state: any) => state.jwt);
@@ -54,6 +55,8 @@ const AppRoutes = () => {
                     <Route path="sales" element={<AdminSalesPage />} />
                     <Route path="patients" element={<AdminPatientPage />} />
                     <Route path="doctors" element={<AdminDoctorPage />} />
+                    {/* For testing the platform pages if shadcn is introduced  */}
+                    <Route path="testing" element={<DashboardPage/>} />
 
                 </Route>
                 <Route path="/doctor" element={<ProtectedRoute><DoctorDashboard /></ProtectedRoute>} >

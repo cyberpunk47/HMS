@@ -7,19 +7,26 @@ import Topcards from "./Topacards";
 
 const Dashboard = () => {
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
+            {/* Stat cards */}
             <Topcards />
-            <div className="grid grid-cols-3 gap-5">
+
+            {/* Disease chart + Appointments */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DiseaseChart />
                 <Appointments />
-                <Medicines />
             </div>
-            <div className="grid grid-cols-2 gap-5">
+
+            {/* Medicines */}
+            <Medicines />
+
+            {/* Patients + Doctors */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Patients />
                 <Doctors />
             </div>
         </div>
-    )
-}
+    );
+};
 
 export default Dashboard;

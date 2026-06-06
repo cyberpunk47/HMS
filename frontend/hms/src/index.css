@@ -1,1 +1,7 @@
-[Empty file]
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Poppins:wght@400;500;600;700&display=swap');
+
+
+@theme {
+  --font-sans: 'Poppins', sans-serif;
+  --font-serif: 'Merriweather', serif;
+}

@@ -1,8 +1,25 @@
 import {createSlice} from "@reduxjs/toolkit";
+import { jwtDecode } from "jwt-decode";
+
+const getInitialToken = (): string => {
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    try {
+        const decoded: any = jwtDecode(token);
+        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+            localStorage.removeItem("token");
+            return "";
+        }
+        return token;
+    } catch {
+        localStorage.removeItem("token");
+        return "";
+    }
+};
 
 const jwtSlice = createSlice({
     name: "jwt",
-    initialState: localStorage.getItem("token") || "",
+    initialState: getInitialToken(),
     reducers:{
         setJwt: (state, action)=>{
             localStorage.setItem("token", action.payload);

@@ -29,93 +29,53 @@ const LoginPage = () => {
     const handleSubmit = (values: typeof form.values) => {
         setLoading(true)
         loginUser(values).then((_data) => {
+            // console.log(_data)
+            // console.log(jwtDecode(_data))
             successNotification("Logged in Successfully")
+            // const user:any = jwtDecode(_data)
+            // console.log(user)
+            // navigate(`${user?.role?.toLowerCase()}/dashboard`)
             dispatch(setJwt(_data))
             dispatch(setUser(jwtDecode(_data)))
         }).catch((error) => {
-            errorNotification(error?.response?.data?.errorMessage || "Failed to login. Please check your credentials.")
+            errorNotification(error?.response?.data?.errorMessage)
+
         }).finally(() => {
             setLoading(false)
         })
     };
-
     return (
-        <div className="min-h-screen w-screen bg-gradient-to-br from-[#072c2b] via-[#165955] to-[#072c2b] flex flex-col items-center justify-center py-10 px-4">
-            <div className="py-4 text-pink-400 flex gap-2 items-center animate-pulse">
-                <IconHeartbeat size={48} stroke={2.5} />
-                <span className="font-heading font-semibold text-4xl text-white tracking-wide">Pulse</span>
+        <div style={{ background: 'url("/bg.jpg")' }} className="h-screen w-screen !bg-cover !bg-center !bg-no-repeat flex flex-col items-center justify-center ">
+            <div className="py-3 text-pink-400 flex gap-1 items-center">
+                <IconHeartbeat size={45} stroke={2.5} />
+                <span className="font-heading font-semibold text-4xl">Pulse</span>
             </div>
 
-            <div className="w-full max-w-[450px] bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 shadow-2xl">
-                <form className="flex flex-col gap-6" onSubmit={form.onSubmit(handleSubmit)}>
-                    <div className="self-center font-semibold font-heading text-white text-2xl tracking-wide mb-2">Welcome Back</div>
-
+            <div className="w-[450px] backdrop-blur-md p-10 py-8 rounded-lg ">
+                <form className="flex flex-col gap-5 [&_input]:!placeholder-neutral-100 [&_.mantine-Input-input]:!border-white [&_.mantine-Input-input]:!border [&_input]:!pl-2 [&_input]:!text-white" onSubmit={form.onSubmit(handleSubmit)}>
+                    <div className="self-center font-medium font-heading text-white text-xl">Login</div>
                     <TextInput
-                        label="Email Address"
-                        placeholder="Enter your email"
-                        styles={{
-                            input: {
-                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#ffffff',
-                                transition: 'all 0.2s ease',
-                            },
-                            label: {
-                                color: 'rgba(255, 255, 255, 0.9)',
-                                marginBottom: '6px',
-                            }
-                        }}
-                        classNames={{
-                            input: 'focus:border-[#1fad9f] focus:bg-white/15 placeholder-white/30 rounded-xl text-white py-2.5 px-4 font-sans text-sm',
-                            label: 'font-sans font-medium text-xs',
-                        }}
+                        variant="unstyled"
                         size="md"
+                        radius="md"
+                        placeholder="Email"
                         key={form.key('email')}
                         {...form.getInputProps('email')}
                     />
-
                     <PasswordInput
-                        label="Password"
-                        placeholder="Enter your password"
-                        styles={{
-                            input: {
-                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#ffffff',
-                                transition: 'all 0.2s ease',
-                            },
-                            label: {
-                                color: 'rgba(255, 255, 255, 0.9)',
-                                marginBottom: '6px',
-                            },
-                            innerInput: {
-                                color: '#ffffff',
-                            }
-                        }}
-                        classNames={{
-                            input: 'focus:border-[#1fad9f] focus:bg-white/15 placeholder-white/30 rounded-xl text-white py-2.5 px-4 font-sans text-sm',
-                            label: 'font-sans font-medium text-xs',
-                        }}
+                        variant="unstyled"
                         size="md"
+                        radius="md"
+                        placeholder="Password"
                         key={form.key('password')}
                         {...form.getInputProps('password')}
                     />
-
-                    <Button 
-                        loading={loading} 
-                        type="submit" 
-                        radius="lg" 
-                        size="lg"
-                        className="w-full bg-[#1fad9f] hover:bg-[#168b82] text-white font-semibold font-sans py-3 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer border-none mt-2"
-                    >
-                        Login
-                    </Button>
-
-                    <div className="text-white/60 text-sm self-center mt-2">
-                        Don't have an account? <Link to="/register" className="text-white hover:text-emerald-300 font-semibold underline underline-offset-4 transition-all">Register</Link>
-                    </div>
+                    <Button loading={loading} type="submit" color="pink" radius="md" size="md">Login</Button>
+                    <div className="text-neutral-100 text-sm self-center">Don't have an account <Link to="/register" className="underline hover:text-blue-700">Register</Link> </div>
                 </form>
+
             </div>
+
         </div>
     )
 }

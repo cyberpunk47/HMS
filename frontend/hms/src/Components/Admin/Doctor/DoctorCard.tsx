@@ -45,16 +45,5 @@ const DoctorCard = ({ name, email, dob, phone, id, address, aadharNo, totalExp, 
 }
 
 export default DoctorCard
+//
 
-/*
-aadharNo: null
-address: null
-allergies: null
-bloodGroup: null
-chronicDesease: null 
-dob: null 
-email: "diya@ex.com" 
-id: 1 
-name: "Diya" 
-phone: null
-*/

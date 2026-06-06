@@ -53,16 +53,4 @@ const PresCard = ({ appointmentId, doctorName, notes, reason, status, prescripti
 }
 
 export default PresCard
-
-/*
-aadharNo: null
-address: null
-allergies: null
-bloodGroup: null
-chronicDesease: null 
-dob: null 
-email: "diya@ex.com" 
-id: 1 
-name: "Diya" 
-phone: null
-*/
+//
