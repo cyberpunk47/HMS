@@ -122,4 +122,16 @@ const getTodaysAppointments = async () =>{
         .catch((error:any) => {throw error;})
 }
 
-export { scheduleAppointment, cancelAppointment, getAppointment, getAppointmentDetails, getAppointmentsByPatient, getAppointmentsByDoctor, createAppointmentReport, isReportExists, getReportsByPatientId, getPrescriptionsByPatientId, getAllPrescriptions, getMedicinesByPrescriptionId, countAppointmentsByPatient, countAppointmentsByDoctor, countAllAppointments, countReasonsByPatient, countReasonsByDoctor, countAllReasons, getMedicinesConsumedByPatient, getTodaysAppointments }
+const getPatientIdsByDoctor = async (doctorId: any) => {
+    return axiosInstance.get(`/appointment/patients/doctor/${doctorId}`)
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+const getUniquePatientCountsByDoctor = async (doctorId: any) => {
+    return axiosInstance.get(`/appointment/patients/doctor/${doctorId}/metrics`)
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+export { scheduleAppointment, cancelAppointment, getAppointment, getAppointmentDetails, getAppointmentsByPatient, getAppointmentsByDoctor, createAppointmentReport, isReportExists, getReportsByPatientId, getPrescriptionsByPatientId, getAllPrescriptions, getMedicinesByPrescriptionId, countAppointmentsByPatient, countAppointmentsByDoctor, countAllAppointments, countReasonsByPatient, countReasonsByDoctor, countAllReasons, getMedicinesConsumedByPatient, getTodaysAppointments ,getPatientIdsByDoctor, getUniquePatientCountsByDoctor }

@@ -1,25 +1,27 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import { getUniquePatientCountsByDoctor } from '@/Service/AppointmentService';
+import { addZeroMonths } from '@/Utility/OtherUtility';
+import { useSelector } from 'react-redux';
 
 const PatientMetrics = () => {
-    const data = [
-        { date: 'January', patients: 5 },
-        { date: 'February', patients: 8 },
-        { date: 'March', patients: 12 },
-        { date: 'April', patients: 7 },
-        { date: 'May', patients: 14 },
-        { date: 'June', patients: 9 },
-        { date: 'July', patients: 11 },
-        { date: 'August', patients: 6 },
-        { date: 'September', patients: 10 },
-        { date: 'October', patients: 13 },
-        { date: 'November', patients: 4 },
-        { date: 'December', patients: 15 },
-    ];
+    const user = useSelector((state: any) => state.user);
+
+    const { data: chartData = [], isLoading } = useQuery({
+        queryKey: ["patientMetrics", user?.profileId],
+        queryFn: () => getUniquePatientCountsByDoctor(user?.profileId),
+        select: (res) => addZeroMonths(res, "month", "count"),
+        enabled: !!user?.profileId,
+    });
 
     const getSum = (data: any[], key: string) => {
-        return data.reduce((sum, item) => sum + item[key], 0);
+        return data.reduce((sum, item) => sum + (Number(item[key]) || 0), 0);
     };
+
+    if (isLoading) {
+        return <div className="p-5 text-gray-500">Loading metrics...</div>;
+    }
 
     return (
         <Card className="hover:shadow-md transition-shadow">
@@ -30,14 +32,14 @@ const PatientMetrics = () => {
                         <CardDescription>{new Date().getFullYear()} overview</CardDescription>
                     </div>
                     <span className="text-2xl font-bold text-blue-600">
-                        {getSum(data, "patients")}
+                        {getSum(chartData, "count")}
                     </span>
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data}>
+                        <AreaChart data={chartData}>
                             <defs>
                                 <linearGradient id="colorPatients" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -45,7 +47,7 @@ const PatientMetrics = () => {
                                 </linearGradient>
                             </defs>
                             <XAxis
-                                dataKey="date"
+                                dataKey="month"
                                 tick={{ fontSize: 11, fill: '#9ca3af' }}
                                 axisLine={false}
                                 tickLine={false}
@@ -62,7 +64,7 @@ const PatientMetrics = () => {
                             />
                             <Area
                                 type="monotone"
-                                dataKey="patients"
+                                dataKey="count"
                                 stroke="#3b82f6"
                                 strokeWidth={2}
                                 fill="url(#colorPatients)"

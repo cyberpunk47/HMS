@@ -1,5 +1,4 @@
 package com.hms.pharmacyMS.entity;
-
 public enum MedicineType {
     SYRUP,
     TABLET,
@@ -14,5 +13,6 @@ public enum MedicineType {
     LIQUID,
     POWDER,
     SPRAY,
-    OTHER
+    OTHER,
+    GEL,
 }

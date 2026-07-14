@@ -1,0 +1,452 @@
+================================================================================
+                           HMS TEST & PERFORMANCE RESULTS
+================================================================================
+
+1. TEST CONSTRAINTS
+--------------------------------------------------------------------------------
+- Doctor:              50
+- Patient:             500
+- Inventory Batch:     500
+- Medicine:            200
+- Appointment:         1000
+
+================================================================================
+2. LOAD TEST METRICS
+--------------------------------------------------------------------------------
+Total Time to Complete Load Test: 93 Seconds
+
++-------------------------+---------+---------+---------+---------+----------+
+| Request Type            | Calls   | Average | Min     | Max     | P95      |
++-------------------------+---------+---------+---------+---------+----------+
+| INVENTORY_BATCH_CREATED | 500     | 10 ms   | 8 ms    | 41 ms   | 16 ms    |
+| MEDICINE_CREATED        | 200     | 14 ms   | 5 ms    | 40 ms   | 28 ms    |
+| REGISTER_DOCTOR         | 50      | 118 ms  | 97 ms   | 352 ms  | 192 ms   |
+| REGISTER_PATIENT        | 500     | 114 ms  | 92 ms   | 181 ms  | 146 ms   |
+| APPOINTMENT_CREATED     | 1000    | 22 ms   | 13 ms   | 102 ms  | 39 ms    |
++-------------------------+---------+---------+---------+---------+----------+
+
+================================================================================
+3. TRANSACTION SUCCESS / FAILURE COUNTS
+--------------------------------------------------------------------------------
++-------------------------+---------+---------+---------+
+| Transaction Type        | Total   | Success | Failure |
++-------------------------+---------+---------+---------+
+| INVENTORY_BATCH_CREATED | 500     | 500     | 0       |
+| MEDICINE_CREATED        | 200     | 168     | 32      |
+| REGISTER_DOCTOR         | 50      | 50      | 0       |
+| REGISTER_PATIENT        | 500     | 500     | 0       |
+| APPOINTMENT_CREATED     | 1000    | 974     | 26      |
++-------------------------+---------+---------+---------+
+
+================================================================================
+4. RESPONSE TIME (RT) ANALYSIS IN USER-MS & PROFILE-MS
+================================================================================
+Core Component Response Times:
++-------------------------------+----------------------------------------------+
+| Component                     | Typical Time                                 |
++-------------------------------+----------------------------------------------+
+| findByEmail                   | 2 – 9 ms                                     |
+| BCrypt                        | 90 – 110 ms                                  |
+| ProfileMS (Feign + Proc)      | 15 – 90 ms (first request ~259 ms warm-up)   |
+| userRepository.save           | 1 – 4 ms                                     |
+| Total                         | ~110 – 140 ms (after warm-up)                |
++-------------------------------+----------------------------------------------+
+
+================================================================================
+5. RAW SPRING LOGS & HIBERNATE QUERIES (SAMPLES)
+================================================================================
+[WARN] 2026-07-04T18:37:25.272+05:30 [UserMS] [nio-8082-exec-7] ExceptionHandlerExceptionResolver:
+Resolved [com.hms.user.exception.HmsException: USER_ALREADY_EXISTS]
+
+--- Detailed Request Latency Breakdown ---
+
+[Request #63] (First Request - Doctor)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=? (x3)
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 9 ms
+  * passwordEncoder (BCrypt): 102 ms
+  * ProfileMS Feign Client  : 259 ms
+  * userRepository.save     : 26 ms
+  * Total time              : 400 ms
+
+[Request #64] (Second Request - Doctor)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 4 ms
+  * passwordEncoder (BCrypt): 91 ms
+  * ProfileMS Feign Client  : 18 ms
+  * userRepository.save     : 1 ms
+  * Total time              : 116 ms
+
+[Request #65] (Third Request - Doctor)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 2 ms
+  * passwordEncoder (BCrypt): 89 ms
+  * ProfileMS Feign Client  : 15 ms
+  * userRepository.save     : 1 ms
+  * Total time              : 109 ms
+
+[Request #66] (Fourth Request - Doctor)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 2 ms
+  * passwordEncoder (BCrypt): 89 ms
+  * ProfileMS Feign Client  : 22 ms
+  * userRepository.save     : 4 ms
+  * Total time              : 119 ms
+
+[Request #67] (Fifth Request - Doctor)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 3 ms
+  * passwordEncoder (BCrypt): 98 ms
+  * ProfileMS Feign Client  : 16 ms
+  * userRepository.save     : 1 ms
+  * Total time              : 120 ms
+
+[Request #526] (First Profile Request - Patient)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 3 ms
+  * passwordEncoder (BCrypt): 99 ms
+  * ProfileMS Feign Client  : 57 ms
+  * userRepository.save     : 3 ms
+  * Total time              : 164 ms
+
+[Request #527] (Patient)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 4 ms
+  * passwordEncoder (BCrypt): 111 ms
+  * ProfileMS Feign Client  : 18 ms
+  * userRepository.save     : 1 ms
+  * Total time              : 136 ms
+
+[Request #528] (Patient)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 3 ms
+  * passwordEncoder (BCrypt): 95 ms
+  * ProfileMS Feign Client  : 19 ms
+  * userRepository.save     : 3 ms
+  * Total time              : 121 ms
+
+[Request #529] (Patient)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 6 ms
+  * passwordEncoder (BCrypt): 90 ms
+  * ProfileMS Feign Client  : 88 ms
+  * userRepository.save     : 2 ms
+  * Total time              : 188 ms
+
+[Request #530] (Patient)
+- SQL Queries:
+  * select u1_0.id, u1_0.email, u1_0.name, u1_0.password, u1_0.profile_id, u1_0.role from users u1_0 where u1_0.email=?
+  * insert into users (email, name, password, profile_id, role) values (?, ?, ?, ?, ?)
+- Latency Components:
+  * findByEmail             : 5 ms
+  * passwordEncoder (BCrypt): 114 ms
+  * ProfileMS Feign Client  : 17 ms
+  * userRepository.save     : 2 ms
+  * Total time              : 139 ms
+
+================================================================================
+6. DETAILED PERFORMANCE & LATENCY ANALYSIS
+--------------------------------------------------------------------------------
+1. JVM & Framework Warm-Up Latency:
+   * The first doctor registration request (#63) took 400 ms.
+   * This is normal and expected in Java/JVM environments due to:
+     - JVM classloading & JIT compilation.
+     - Hibernate generating and caching SQL templates.
+     - Connection pool initialization.
+     - Feign creating the HTTP connection (TCP handshake).
+     - Empty caches.
+   * Subsequent doctor requests stabilized quickly (e.g., #64 took 116 ms, #65 took 109 ms).
+
+2. Network & Inter-Service Feign Call Overhead:
+   * Calls to ProfileMS Feign Client took 15–22 ms normally.
+   * However, occasional network spikes occurred:
+     - 57 ms (Patient #526)
+     - 88 ms (Patient #529)
+   - These spikes directly translate to higher end-to-end request latencies.
+
+3. Database Access Speed:
+   * Database read/write operations are highly optimized:
+     - findByEmail: 2–9 ms
+     - userRepository.save: 1–4 ms (excluding the initial warm-up of 26 ms)
+   * The database is not a performance bottleneck.
+
+4. Cryptographic Hashing Cost (BCrypt):
+   * passwordEncoder (BCrypt) consistently takes 89–114 ms.
+   * BCrypt is intentionally CPU-bound by design (using a work factor) to prevent brute-force attacks.
+   * This hashing is the largest predictable and constant latency contributor in the request lifecycle.
+
+Key Takeaways:
+- Request time is dominated by BCrypt hashing (~100 ms) and ProfileMS Feign Client overhead (~15-90 ms).
+- Database query times are negligible.
+- Feign network calls present the main source of latency jitter after the JVM has warmed up.
+- These findings demonstrate the value of performance profiling in identifying bottlenecks.
+
+PARALLEL LOAD TEST RESULTS
+Test Configuration
+Parameter	Value
+Doctors	500
+Patients	500
+Medicines	40
+Inventory Batches	50
+Appointments	1000
+Parallel Threads	20
+Execution Summary
+Transaction	Requested	Success	Failure
+Doctor Registration	500	500	0
+Patient Registration	500	500	0
+Medicine Creation	40	33	7
+Inventory Batch Creation	50	50	0
+Appointment Scheduling	1000	997	3
+
+Total execution time:
+
+78.5 seconds
+
+8. Parallel Performance Analysis
+8.1 Doctor Registration
+Observation
+
+All 500 doctor registrations completed successfully.
+
+No failures occurred despite twenty concurrent worker threads.
+
+Bottleneck
+
+The dominant latency remains BCrypt password hashing.
+
+Typical request path:
+
+Client
+        ↓
+findByEmail
+        ↓
+BCrypt (~100ms)
+        ↓
+ProfileMS (Feign)
+        ↓
+Save User
+Analysis
+
+Although database writes occur in parallel, BCrypt is CPU-intensive.
+
+Since BCrypt intentionally consumes CPU cycles, increasing the thread count mainly increases CPU utilization rather than database load.
+
+Primary Bottleneck
+
+BCrypt password hashing
+8.2 Patient Registration
+Observation
+
+All 500 patient registrations completed successfully.
+
+Performance characteristics closely match doctor registration.
+
+Bottleneck
+
+Same as doctor registration.
+
+BCrypt
+
+remains responsible for most request latency.
+
+Database access remains minimal.
+
+8.3 Medicine Creation
+Observation
+40 Requests
+
+33 Success
+
+7 Failure
+
+The remaining failures are now isolated to concurrent execution rather than enum inconsistencies.
+
+Possible Bottlenecks
+
+Potential causes include:
+
+duplicate validation race conditions
+unique database constraints
+concurrent insert conflicts
+transaction contention
+
+Unlike previous tests, enum mismatches are no longer responsible.
+
+If duplicate checks use
+
+existsByName(...)
+
+followed by
+
+save(...)
+
+multiple concurrent requests may pass the existence check simultaneously before one transaction commits.
+
+This creates a classic race condition.
+
+8.4 Inventory Batch Creation
+Observation
+50 Success
+
+0 Failure
+
+Inventory creation demonstrated stable behaviour under concurrent execution.
+
+Database inserts completed with very low latency.
+
+Analysis
+
+Inventory operations involve minimal business logic.
+
+Most execution time consists of:
+
+Validation
+
+↓
+
+Single INSERT
+
+↓
+
+Commit
+
+No significant bottlenecks were observed.
+
+8.5 Appointment Scheduling
+Observation
+1000 Requests
+
+997 Success
+
+3 Failure
+
+Compared with sequential execution, appointment failures decreased significantly.
+
+Remaining Bottleneck
+
+Appointment scheduling still contains unavoidable business-rule conflicts.
+
+Each request validates:
+
+Doctor availability
+
+↓
+
+Patient availability
+
+↓
+
+Time-slot availability
+
+When multiple threads schedule appointments simultaneously, two requests may attempt to reserve the same slot.
+
+The service correctly rejects one request to preserve consistency.
+
+These failures therefore represent expected business-rule enforcement rather than infrastructure instability.
+
+9. Parallel Latency Analysis
+CPU Bottleneck
+
+Largest contributor:
+
+BCrypt
+
+≈90–110 ms
+
+This dominates registration requests.
+
+Increasing thread count increases CPU usage but does not significantly impact database latency.
+
+Network Bottleneck
+
+Inter-service communication through Feign introduces:
+
+15–25 ms
+
+under normal conditions.
+
+Occasional spikes may occur due to
+
+TCP scheduling
+JVM thread scheduling
+operating system context switching
+temporary connection pool contention
+Database Performance
+
+Database operations remain consistently fast.
+
+Typical values:
+
+SELECT
+
+2–9 ms
+
+INSERT
+
+1–4 ms
+
+No evidence suggests PostgreSQL is a performance bottleneck.
+
+JVM Warm-Up
+
+The first requests remain significantly slower because of
+
+JIT compilation
+Hibernate metadata initialization
+Connection pool creation
+HTTP connection establishment
+
+Subsequent requests stabilize rapidly.
+
+10. Concurrency Behaviour
+
+The application successfully handled
+
+500 Doctors
+
+500 Patients
+
+1000 Appointments
+
+20 Parallel Threads
+
+without deadlocks or application crashes.
+
+Spring Boot thread pools, transaction management, and Hibernate remained stable throughout execution.
+
+Observed failures were isolated to application-level business validation rather than framework limitations.
+
+11. Performance Bottleneck Summary
+Component	Typical Latency	Bottleneck Level	Resolution
+BCrypt Password Encoding	90–110 ms	High (CPU-bound)	Keep current cost factor for production security; use a lower cost only in performance testing if appropriate.
+ProfileMS Feign Communication	15–25 ms	Medium	Enable HTTP connection pooling, tune timeouts, and consider asynchronous communication where suitable.
+JVM Warm-up	250–400 ms (first request only)	Low	Ignore warm-up in benchmarks or use warm-up requests before measuring.
+Database Queries	1–9 ms	Low	Current indexing and query performance are sufficient.
+Appointment Scheduling	Business-rule dependent	Medium	Generate a wider distribution of appointment time slots or implement retry logic when collisions occur.
+Medicine Creation	Intermittent under concurrency	Medium	Make duplicate handling atomic using database unique constraints, transactions, or UPSERT patterns instead of a separate exists check followed by save.

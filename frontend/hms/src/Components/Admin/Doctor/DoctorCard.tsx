@@ -1,7 +1,7 @@
 import { Avatar, Divider } from "@mantine/core"
 import { IconBriefcase, IconMail, IconMapPin, IconPhone } from "@tabler/icons-react"
 
-const DoctorCard = ({ name, email, dob, phone, id, address, aadharNo, totalExp, department, specilaization }: any) => {
+const DoctorCard = ({ name, email, dob, phone, id, address, aadharNo, totalExp, department, specialization }: any) => {
     return (
         <div className="border p-4 flex flex-col gap-2 hover:bg-primary-50 transition duration-300 ease-in-out rounded-xl  hover:shadow-[0_0_5px_1px_blue] !shadow-primary-500 cursor-pointer space-y-2 ">
             <div className="flex items-center gap-3 ">
@@ -11,7 +11,7 @@ const DoctorCard = ({ name, email, dob, phone, id, address, aadharNo, totalExp, 
 
                     <div>{name}</div>
                     <div className="text-xs text-gray-400">
-                        {specilaization} &bull; {department}
+                        {specialization} &bull; {department}
                     </div>
                 </div>
             </div>

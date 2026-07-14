@@ -1,4 +1,5 @@
 package com.hms.pharmacyMS.entity;
+
 public enum MedicineCategory {
     ANALGESICS,              // Pain relievers (e.g., ibuprofen, acetaminophen)
     ANTIBIOTICS,             // Treat bacterial infections (e.g., penicillin, amoxicillin)
@@ -37,5 +38,12 @@ public enum MedicineCategory {
     ANTIALLERGICS,           // Treat allergic reactions (e.g., epinephrine)
     ANTIPYRETICS,            // Reduce fever (e.g., paracetamol)
     ANTIMALARIALS,           // Treat malaria (e.g., chloroquine)
-    ANTISPASMODICS           // Relieve muscle spasms (e.g., dicyclomine)
+    ANTISPASMODICS,          // Relieve muscle spasms (e.g., dicyclomine)
+    ANTISEPTICS,              // Treat infections (e.g., betadine)
+    SUPPLEMENTS,
+    VITAMINS,
+    ANTIDIARRHEALS,
+    REHYDRATION,
+    COUGH_AND_COLD,
+    PAIN_RELIEF
 }

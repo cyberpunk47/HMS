@@ -47,4 +47,16 @@ public interface AppointmentRepository extends CrudRepository<Appointment, Long>
     // For the Cron Job to find old appointments
     List<Appointment> findByStatusAndAppointmentTimeBefore(Status status, LocalDateTime time);
 
+    // 1. Get list of distinct patient IDs seen by a doctor
+    @Query("SELECT DISTINCT a.patientId FROM Appointment a WHERE a.doctorId = ?1")
+    List<Long> findDistinctPatientIdsByDoctorId(Long doctorId);
+
+    // 2. Count distinct patients seen by a doctor monthly (for the Area Chart)
+    @Query(value = "SELECT INITCAP(to_char(a.appointment_time, 'FMMonth')) AS month, COUNT(DISTINCT a.patient_id) AS count "
+            +
+            "FROM appointment a WHERE a.doctor_id = ?1 " +
+            "AND EXTRACT(YEAR FROM a.appointment_time) = EXTRACT(YEAR FROM CURRENT_DATE) " +
+            "GROUP BY to_char(a.appointment_time, 'FMMonth')", nativeQuery = true)
+    List<MonthlyVisitDTO> countCurrentYearPatientsByDoctor(Long doctorId);
+
 }

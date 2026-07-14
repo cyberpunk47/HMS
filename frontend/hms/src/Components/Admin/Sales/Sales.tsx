@@ -282,7 +282,7 @@ const Sales = () => {
                             rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
                             filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                            emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                            emptyMessage="No sales found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
                             <Column field="buyerName" header="Buyer" />
                             <Column field="buyerContact" header="Contact" />
                             {/* <Column field="Prescription" header="Pris" /> */}

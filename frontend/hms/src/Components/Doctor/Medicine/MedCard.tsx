@@ -1,6 +1,6 @@
-import { IconCurrencyRupee, IconMedicineSyrup, IconPill, IconPills, IconStack2, IconVaccine } from "@tabler/icons-react"
+import { IconCurrencyRupee, IconMedicineSyrup, IconPill, IconPills, IconStack2, IconVaccine, IconCalendar } from "@tabler/icons-react"
 
-const MedCard = ({ name, dosage, id, manufacturer, stock, category, type, unitPrice, onEdit }: any) => {
+const MedCard = ({ name, dosage, id, manufacturer, stock, category, type, unitPrice, expDate, onEdit }: any) => {
 
     return (
         <div onClick={onEdit} className="border p-4 flex flex-col gap-2 hover:bg-primary-50 transition duration-300 ease-in-out rounded-xl  hover:shadow-[0_0_5px_1px_blue] !shadow-primary-500 cursor-pointer space-y-2 ">
@@ -29,10 +29,20 @@ const MedCard = ({ name, dosage, id, manufacturer, stock, category, type, unitPr
                 <IconVaccine className="text-xs text-primary-700 bg-primary-100 p-1 rounded-full" size={24} />
                 <div>{type}</div>
             </div>
+            
             <div className="flex text-xs items-center gap-3">
                 <IconCurrencyRupee className="text-xs text-primary-700 bg-primary-100 p-1 rounded-full" size={24} />
                 <div>Price: {unitPrice}</div>
             </div>
+
+            {expDate && (
+                <div className="flex text-xs items-center gap-3">
+                    <IconCalendar className="text-xs text-primary-700 bg-primary-100 p-1 rounded-full" size={24} />
+                    <div className={new Date(expDate) < new Date() ? "text-red-500 font-semibold" : "text-gray-700"}>
+                        Expiry: {new Date(expDate).toLocaleDateString()} {new Date(expDate) < new Date() ? "(Expired)" : ""}
+                    </div>
+                </div>
+            )}
 
         </div>
     )

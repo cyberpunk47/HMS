@@ -47,8 +47,8 @@ public class UserAPI {
 
     @PostMapping("/register")
     public ResponseEntity<ResponseDTO> registerUser(@RequestBody @Valid UserDTO userDTO) throws HmsException{
-        userService.registerUser(userDTO);
-        return new ResponseEntity<>(new ResponseDTO("Account created successfully."),HttpStatus.CREATED);
+        Long profileId = userService.registerUser(userDTO);
+        return new ResponseEntity<>(new ResponseDTO("Account created successfully.", profileId), HttpStatus.CREATED);
     }
 
     @PostMapping("/login")

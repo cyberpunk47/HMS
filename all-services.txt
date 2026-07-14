@@ -1,0 +1,1185 @@
+==============================
+./backend/Appointment/src/main/java/com/hms/appointment/service/ApRecordServiceImpl.java
+==============================
+package com.hms.appointment.service;
+
+import com.hms.appointment.clients.ProfileClient;
+import com.hms.appointment.dto.ApRecordDTO;
+import com.hms.appointment.dto.DoctorName;
+import com.hms.appointment.dto.RecordDetails;
+import com.hms.appointment.entity.ApRecord;
+import com.hms.appointment.exception.HmsException;
+import com.hms.appointment.repository.ApRecordRepository;
+import com.hms.appointment.utility.StringListConverter;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class ApRecordServiceImpl implements ApRecordService {
+
+    private final ApRecordRepository apRecordRepository;
+    private final PrescriptionService prescriptionService;
+    private final ProfileClient profileClient;
+    private final AppointmentService appointmentService;
+
+    @Override
+    public Long createApRecord(ApRecordDTO request) throws HmsException {
+        Optional<ApRecord> existingRecord = apRecordRepository.findByAppointment_Id(request.getAppointmentId());
+
+        if (existingRecord.isPresent()) {
+            throw new HmsException("APPOINTMENT_RECORD_ALREADY_EXISTS");
+        }
+
+        request.setCreatedAt(LocalDateTime.now());
+        Long id = apRecordRepository.save(request.toEntity()).getId();
+
+        // 1. Cross-wire: Mark the appointment as completed
+        appointmentService.completeAppointment(request.getAppointmentId());
+
+        // 2. Save the prescription (Only once!)
+        if (request.getPrescription() != null) {
+            request.getPrescription().setAppointmentId(request.getAppointmentId());
+            prescriptionService.savePrescription(request.getPrescription());
+        }
+
+        return id;
+    }
+
+    @Override
+    public void updateApRecord(ApRecordDTO request) throws HmsException {
+        ApRecord existing = apRecordRepository.findById(request.getId())
+                .orElseThrow(() -> new HmsException("APPOINTMENT_RECORD_NOT_FOUND"));
+        existing.setNotes(request.getNotes());
+        existing.setDiagnosis(request.getDiagnosis());
+        existing.setFollowUpDate(request.getFollowUpDate());
+        existing.setSymptoms(StringListConverter.convertListToString(request.getSymptoms()));
+        existing.setTests(StringListConverter.convertListToString(request.getTests()));
+        apRecordRepository.save(existing);
+    }
+
+    @Override
+    public ApRecordDTO getApRecordByAppointmentId(Long appointmentId) throws HmsException {
+        return apRecordRepository.findByAppointment_Id(appointmentId)
+                .orElseThrow(() -> new HmsException(("APPOINTMENT_RECORD_NOT_FOUND"))).toDTO();
+    }
+
+    @Override
+    public ApRecordDTO getApRecordById(Long recordId) throws HmsException {
+        return apRecordRepository.findById(recordId).orElseThrow(() -> new HmsException("APPOINTMENT_RECORD_NOT_FOUND"))
+                .toDTO();
+    }
+
+    @Override
+    public ApRecordDTO getApRecordDetailsByAppointmentId(Long appointmentId) throws HmsException {
+        ApRecordDTO record = apRecordRepository.findByAppointment_Id(appointmentId)
+                .orElseThrow(() -> new HmsException(("APPOINTMENT_RECORD_NOT_FOUND"))).toDTO();
+        record.setPrescription(prescriptionService.getPrescriptionByAppointmentId(appointmentId));
+        return record;
+    }
+
+    @Override
+    public List<RecordDetails> getRecordsByPatientId(Long patientId) throws HmsException {
+        List<ApRecord> records = apRecordRepository.findByPatientId(patientId);
+        List<RecordDetails> recordDetails = records.stream()
+                .map(ApRecord::toRecordDetails)
+                .toList();
+        List<Long> doctorsIds = recordDetails.stream()
+                .map(RecordDetails::getDoctorId)
+                .distinct()
+                .toList();
+        List<DoctorName> doctors = profileClient.getDoctorsById(doctorsIds);
+        Map<Long, String> doctorMap = doctors.stream()
+                .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+        recordDetails.forEach(record -> {
+            String doctorName = doctorMap.get(record.getDoctorId());
+            if (doctorName != null) {
+                record.setDoctorName(doctorName);
+            } else {
+                record.setDoctorName("Unknown doctor");
+            }
+        });
+
+        return recordDetails;
+    }
+
+    @Override
+    public Boolean isRecordExists(Long appointmentId) throws HmsException {
+        return apRecordRepository.existsByAppointment_Id(appointmentId);
+    }
+}
+
+==============================
+./backend/Appointment/src/main/java/com/hms/appointment/service/AppointmentServiceImpl.java
+==============================
+package com.hms.appointment.service;
+
+import com.hms.appointment.clients.ProfileClient;
+import com.hms.appointment.dto.*;
+import com.hms.appointment.entity.Appointment;
+import com.hms.appointment.exception.HmsException;
+import com.hms.appointment.repository.AppointmentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+@Service
+public class AppointmentServiceImpl implements AppointmentService {
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private ApiService apiService;
+
+    @Autowired
+    private ProfileClient profileClient;
+
+    @Override
+    @Transactional
+    public Long scheduleAppointment(AppointmentDTO appointmentDTO) throws HmsException {
+        Boolean doctorExists = profileClient.doctorExists(appointmentDTO.getDoctorId());
+        if (doctorExists == null || !doctorExists) {
+            throw new HmsException("DOCTOR_NOT_FOUND");
+        }
+
+        Boolean patientExists = profileClient.patientExists(appointmentDTO.getPatientId());
+        if (patientExists == null || !patientExists) {
+            throw new HmsException("PATIENT_NOT_FOUND");
+        }
+        if (appointmentDTO.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new HmsException("APPOINTMENT_TIME_IS_IN_PAST");
+        }
+        if (appointmentRepository.existsByDoctorIdAndAppointmentTime(appointmentDTO.getDoctorId(),
+                appointmentDTO.getAppointmentTime())) {
+            throw new HmsException("DOCTOR_ALREADY_HAVE_APPOINTMENT_AT_THIS_TIME");
+        }
+        if (appointmentRepository.existsByPatientIdAndAppointmentTime(appointmentDTO.getPatientId(),
+                appointmentDTO.getAppointmentTime())) {
+            throw new HmsException("PATIENT_ALREADY_HAVE_APPOINTMENT_AT_THIS_TIME");
+        }
+        appointmentDTO.setStatus(Status.SCHEDULED);
+        return appointmentRepository.save(appointmentDTO.toEntity()).getId();
+    }
+
+    @Override
+    @Transactional
+    public void cancelAppointment(Long appointmentId) throws HmsException {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+
+        if (appointment.getStatus().equals(Status.CANCELLED)) {
+            throw new HmsException("APPOINTMENT_ALREADY_CANCELLED");
+        }
+        if (appointment.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new HmsException("CANNOT_CANCEL_APPOINTMENT_TIME_IS_IN_PAST");
+        }
+        appointment.setStatus(Status.CANCELLED);
+        appointmentRepository.save(appointment);
+    }
+
+    @Override
+    @Transactional
+    public AppointmentDTO completeAppointment(Long appointmentId) throws HmsException {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+        if (appointment.getStatus() != Status.SCHEDULED) {
+            throw new HmsException("ONLY_SCHEDULED_CAN_BE_COMPLETED");
+        }
+        if (appointment.getAppointmentTime().isAfter(LocalDateTime.now().plusHours(1))) {
+            throw new HmsException("CANNOT_COMPLETE_FUTURE_APPOINTMENT");
+        }
+        appointment.setStatus(Status.COMPLETED);
+        appointmentRepository.save(appointment);
+        return appointment.toDTO();
+    }
+
+    @Override
+    public AppointmentDTO rescheduleAppointment(Long appointmentId, String newDateTime) throws HmsException {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND"));
+        if (appointment.getStatus() != Status.SCHEDULED) {
+            throw new HmsException("ONLY_SCHEDULED_CAN_BE_RESCHEDULED");
+        }
+
+        LocalDateTime parsedDateTime = LocalDateTime.parse(newDateTime);
+
+        // BUG-07 Fix equivalent: Cannot reschedule to a past date
+        if (parsedDateTime.isBefore(LocalDateTime.now())) {
+            throw new HmsException("CANNOT_RESCHEDULE_TO_PAST_DATE");
+        }
+
+        // BUG-08 Fix: Overlap Check
+        if (appointmentRepository.existsByDoctorIdAndAppointmentTime(appointment.getDoctorId(), parsedDateTime)) {
+            throw new HmsException("DOCTOR_NOT_AVAILABLE_AT_THIS_TIME");
+        }
+
+        appointment.setAppointmentTime(parsedDateTime);
+        return appointmentRepository.save(appointment).toDTO();
+
+    }
+
+    @Override
+    public AppointmentDTO getAppointmentDetails(Long appointmentId) throws HmsException {
+        return appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    public AppointmentDetails getAppointmentDetailsWithName(Long appointmentId) throws HmsException {
+        AppointmentDTO appointmentDTO = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND")).toDTO();
+        DoctorDTO doctorDTO = profileClient.getDoctorById(appointmentDTO.getDoctorId());
+        PatientDTO patientDTO = profileClient.getPatientById(appointmentDTO.getPatientId());
+        return new AppointmentDetails(appointmentDTO.getId(), appointmentDTO.getPatientId(), patientDTO.getName(),
+                patientDTO.getEmail(), patientDTO.getPhone(), appointmentDTO.getDoctorId(), doctorDTO.getName(),
+                appointmentDTO.getAppointmentTime(), appointmentDTO.getStatus(), appointmentDTO.getReason(),
+                appointmentDTO.getNotes());
+    }
+
+    @Override
+    public List<AppointmentDetails> getAllAppointmentsByPatientId(Long patientId) throws HmsException {
+        return appointmentRepository.findAllByPatientId(patientId).stream()
+                .map(appointment -> {
+                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                    appointment.setDoctorName(doctorDTO.getName());
+                    return appointment;
+                }).toList();
+    }
+
+    @Override
+    public List<AppointmentDetails> getAllAppointmentsByDoctorId(Long doctorId) throws HmsException {
+        return appointmentRepository.findAllByDoctortId(doctorId).stream()
+                .map(appointment -> {
+                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                    appointment.setPatientName(patientDTO.getName());
+                    appointment.setPatientEmail(patientDTO.getEmail());
+                    appointment.setPatientPhone(patientDTO.getPhone());
+                    return appointment;
+                }
+
+                ).toList();
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCountByPatient(Long patientId) throws HmsException {
+        return appointmentRepository.countCurrentYearVisitsByPatient(patientId);
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCountByPatient(Long patientId) {
+        return appointmentRepository.countReasonsByPatientId(patientId);
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCountByDoctor(Long doctorId) throws HmsException {
+        return appointmentRepository.countCurrentYearVisitsByDoctor(doctorId);
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getAppointmentCounts() throws HmsException {
+        return appointmentRepository.countCurrentYearVisits();
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCountByDoctor(Long doctorId) {
+        return appointmentRepository.countReasonsByDoctorId(doctorId);
+    }
+
+    @Override
+    public List<ReasonCountDTO> getReasonCount() {
+        return appointmentRepository.countReasons();
+    }
+
+    @Override
+    public List<AppointmentDetails> getTodaysAppointments() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+        return appointmentRepository.findByAppointmentTimeBetween(startOfDay, endOfDay).stream().map(
+                appointment -> {
+                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                    return new AppointmentDetails(appointment.getId(), appointment.getPatientId(), patientDTO.getName(),
+                            patientDTO.getEmail(), patientDTO.getPhone(), appointment.getDoctorId(),
+                            doctorDTO.getName(), appointment.getAppointmentTime(), appointment.getStatus(),
+                            appointment.getReason(), appointment.getNotes());
+                }).toList();
+    }
+
+    // Cron Job
+    @Override
+    @Scheduled(cron = "0 0 * * * ?") // Runs at the top of every hour
+    @Transactional
+    public void markExpiredAppointments() {
+        // Find all SCHEDULED appointments where the time is older than right now
+        List<Appointment> expiredAppointments = appointmentRepository
+                .findByStatusAndAppointmentTimeBefore(Status.SCHEDULED, LocalDateTime.now());
+
+        for (Appointment appt : expiredAppointments) {
+            appt.setStatus(Status.EXPIRED);
+        }
+
+        // Save them all in one batch
+        if (!expiredAppointments.isEmpty()) {
+            appointmentRepository.saveAll(expiredAppointments);
+        }
+    }
+
+}
+
+==============================
+./backend/Appointment/src/main/java/com/hms/appointment/service/MedicineServiceImpl.java
+==============================
+package com.hms.appointment.service;
+
+import com.hms.appointment.dto.MedicineDTO;
+import com.hms.appointment.entity.Medicine;
+import com.hms.appointment.repository.MedicineRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class MedicineServiceImpl implements MedicineService {
+    private final MedicineRepository medicineRepository;
+
+    @Override
+    public Long saveMedicine(MedicineDTO request) {
+        return medicineRepository.save(request.toEntity()).getId();
+    }
+
+    @Override
+    public List<MedicineDTO> saveAllMedicines(List<MedicineDTO> requestList) {
+        return ((List<Medicine>) medicineRepository.saveAll(requestList.stream().map(MedicineDTO::toEntity).toList())).stream().map(Medicine::toDTO).toList();
+    }
+
+    @Override
+    public List<MedicineDTO> getAllMedicinesByPrescriptionId(Long prescriptionId) {
+        return medicineRepository.findAllByPrescription_id(prescriptionId).stream().map(Medicine::toDTO).toList();
+    }
+
+    @Override
+    public List<MedicineDTO> getMedicinesByPrescriptionIds(List<Long> ids) {
+        return medicineRepository.findAllByPrescription_idIn(ids).stream().map(Medicine::toDTO).toList();
+    }
+}
+
+==============================
+./backend/Appointment/src/main/java/com/hms/appointment/service/PrescriptionServiceImpl.java
+==============================
+package com.hms.appointment.service;
+
+import com.hms.appointment.clients.ProfileClient;
+import com.hms.appointment.dto.DoctorName;
+import com.hms.appointment.dto.MedicineDTO;
+import com.hms.appointment.dto.PrescriptionDTO;
+import com.hms.appointment.dto.PrescriptionDetails;
+import com.hms.appointment.entity.Prescription;
+import com.hms.appointment.exception.HmsException;
+import com.hms.appointment.repository.PrescriptionRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class PrescriptionServiceImpl implements PrescriptionService {
+
+    private final PrescriptionRepository prescriptionRepository;
+
+    private final MedicineService medicineService;
+
+    private final ProfileClient profileClient;
+
+    @Override
+    public Long savePrescription(PrescriptionDTO request) throws HmsException {
+        request.setPrescriptionDate(LocalDate.now());
+        Long prescriptionId = prescriptionRepository.save(request.toEntity()).getId();
+        if (request.getMedicines() != null) {
+            request.getMedicines().forEach(medicine -> medicine.setPrescriptionId(prescriptionId));
+            medicineService.saveAllMedicines(request.getMedicines());
+        }
+        return prescriptionId;
+    }
+
+    @Override
+    public void updatePrescription(PrescriptionDTO request) throws HmsException {
+        prescriptionRepository.findById(request.getId()).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND"));
+        prescriptionRepository.save(request.toEntity());
+        if (request.getMedicines() != null) {
+            request.getMedicines().forEach(medicine -> medicine.setPrescriptionId(request.getId()));
+            medicineService.saveAllMedicines(request.getMedicines());
+        }
+    }
+
+    @Override
+    public PrescriptionDTO getPrescriptionByAppointmentId(Long appointmentId) throws HmsException {
+        PrescriptionDTO prescriptionDTO = prescriptionRepository.findByAppointment_id(appointmentId).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND")).toDTO();
+        prescriptionDTO.setMedicines(medicineService.getAllMedicinesByPrescriptionId(prescriptionDTO.getId()));
+        return prescriptionDTO;
+    }
+
+    @Override
+    public PrescriptionDTO getPrescriptionById(Long prescriptionId) throws HmsException {
+        PrescriptionDTO dto = prescriptionRepository.findById(prescriptionId).orElseThrow(() -> new HmsException("PRESCRIPTION_NOT_FOUND")).toDTO();
+        dto.setMedicines(medicineService.getAllMedicinesByPrescriptionId(dto.getId()));
+        return dto;
+    }
+
+    @Override
+    public List<PrescriptionDetails> getPrescriptionsByPatientId(Long patientId) throws HmsException {
+        List<Prescription> prescriptions = prescriptionRepository.findAllByPatientId(patientId);
+        List<PrescriptionDetails> prescriptionDetails = prescriptions.stream()
+                .map(Prescription::toDetails)
+                .toList();
+        prescriptionDetails.forEach(details -> {
+            details.setMedicines(medicineService.getAllMedicinesByPrescriptionId(details.getId()));
+        });
+        List<Long> doctorsIds = prescriptionDetails.stream()
+                .map(PrescriptionDetails::getDoctorId)
+                .distinct()
+                .toList();
+        List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorsIds);
+        Map<Long, String> doctorMap = doctorNames.stream()
+                .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+        prescriptionDetails.forEach(details -> {
+            String doctorName = doctorMap.get(details.getDoctorId());
+            if (doctorName != null) {
+                details.setDoctorName(doctorName);
+            } else {
+                details.setDoctorName("Unknown Doctor");
+            }
+        });
+
+        return prescriptionDetails;
+    }
+
+	@Override
+	public List<PrescriptionDetails> getPrescriptions() throws HmsException {
+		List<Prescription> prescriptions = (List<Prescription>) prescriptionRepository.findAll();
+		List<PrescriptionDetails> prescriptionDetails = prescriptions.stream()
+				.map(Prescription::toDetails)
+				.toList();
+		List<Long> doctorIds = prescriptionDetails.stream()
+				.map(PrescriptionDetails::getDoctorId)
+				.distinct()
+				.toList();
+		List<Long> patientIds = prescriptionDetails.stream()
+				.map(PrescriptionDetails::getPatientId)
+				.distinct()
+				.toList();
+		List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorIds);
+		List<DoctorName> patientNames = profileClient.getPatientsById(patientIds);
+		
+		Map<Long, String> doctorMap = doctorNames.stream()
+				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+		Map<Long, String> patientMap = patientNames.stream()
+				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+		
+		prescriptionDetails.forEach(details -> {
+            String doctorName = doctorMap.get(details.getDoctorId());
+            String patientName = patientMap.get(details.getPatientId());
+            if (doctorName != null) {
+            	details.setDoctorName(doctorName);
+            } else {
+            	details.setDoctorName("Unknown Doctor");
+            }
+            
+            if (patientName != null) {
+            	details.setPatientName(patientName);
+            }else {
+            	details.setPatientName("Unknown Patient");
+            }
+        }); 
+		
+		return prescriptionDetails;
+	}
+
+    @Override
+    public List<PrescriptionDetails> getAllPrescriptions() throws HmsException {
+        return getPrescriptions();
+    }
+
+    @Override
+    public List<MedicineDTO> getMedicineByPatientId(Long patientId) throws HmsException {
+         List<Long> pids = prescriptionRepository.findAllPreIdsByPatient(patientId);
+         return medicineService.getMedicinesByPrescriptionIds(pids);
+    }
+}
+
+==============================
+./backend/ProfileMS/src/main/java/com/hms/profile/service/DoctorServiceImpl.java
+==============================
+package com.hms.profile.service;
+
+import com.hms.profile.dto.DoctorDropdown;
+import com.hms.profile.entity.Doctor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.hms.profile.dto.DoctorDTO;
+import com.hms.profile.exception.HmsException;
+import com.hms.profile.repository.DoctorRepository;
+
+import java.util.List;
+
+@Service
+public class DoctorServiceImpl implements DoctorService {
+    @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Override
+    public Long addDoctor(DoctorDTO doctorDTO) throws HmsException {
+        if (doctorDTO.getEmail() != null && doctorRepository.findByEmail(doctorDTO.getEmail()).isPresent())
+            throw new HmsException("DOCTOR_ALREADY_EXISTS");
+        if (doctorDTO.getLicenseNo() != null && doctorRepository.findBylicenseNo(doctorDTO.getLicenseNo()).isPresent())
+            throw new HmsException("DOCTOR_ALREADY_EXISTS");
+        return doctorRepository.save(doctorDTO.toEntity()).getId();
+    }
+
+    @Override
+    public DoctorDTO getDoctorById(Long id) throws HmsException {
+        return doctorRepository.findById(id).orElseThrow(() -> new HmsException("DOCTOR_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    public DoctorDTO updateDoctor(DoctorDTO doctorDTO) throws HmsException {
+        doctorRepository.findById(doctorDTO.getId()).orElseThrow(() -> new HmsException("DOCTOR_NOT_FOUND"));
+        return doctorRepository.save(doctorDTO.toEntity()).toDTO();
+    }
+
+    @Override
+    public Boolean doctorExists(Long id) throws HmsException {
+        return doctorRepository.existsById(id);
+    }
+
+    @Override
+    public List<DoctorDropdown> getDoctorDropdowns() throws HmsException {
+        return doctorRepository.findAllDoctorDropdowns();
+    }
+
+    @Override
+    public List<DoctorDropdown> getDoctorsById(List<Long> ids) throws HmsException {
+        return doctorRepository.findAllDoctorDropdownsByIds(ids);
+    }
+
+    @Override
+    public List<DoctorDTO> getAllDoctors() throws HmsException {
+        return ((List<Doctor>) doctorRepository.findAll()).stream().map(Doctor::toDTO).toList();
+    }
+}
+==============================
+./backend/ProfileMS/src/main/java/com/hms/profile/service/PatientServiceImpl.java
+==============================
+package com.hms.profile.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.hms.profile.dto.DoctorDropdown;
+import com.hms.profile.dto.PatientDTO;
+import com.hms.profile.entity.Patient;
+import com.hms.profile.exception.HmsException;
+import com.hms.profile.repository.PatientRepository;
+
+@Service
+public class PatientServiceImpl implements PatientService {
+
+    @Autowired
+    private PatientRepository patientRepository;
+
+    @Override
+    public Long addPatient(PatientDTO patientDTO) throws HmsException {
+        if (patientDTO.getEmail() != null && patientRepository.findByEmail(patientDTO.getEmail()).isPresent())
+            throw new HmsException("PATIENT_ALREADY_EXISTS");
+        if (patientDTO.getAadharNo() != null && patientRepository.findByAadharNo(patientDTO.getAadharNo()).isPresent())
+            throw new HmsException("PATIENT_ALREADY_EXISTS");
+        return patientRepository.save(patientDTO.toEntity()).getId();
+    }
+
+    @Override
+    public PatientDTO getPatientById(Long id) throws HmsException {
+        return patientRepository.findById(id).orElseThrow(() -> new HmsException("PATIENT_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    public PatientDTO updatePatient(PatientDTO patientDTO) throws HmsException {
+        patientRepository.findById(patientDTO.getId()).orElseThrow(() -> new HmsException("PATIENT_NOT_FOUND"));
+        return patientRepository.save(patientDTO.toEntity()).toDTO();
+    }
+
+    @Override
+    public Boolean patientExists(Long id) throws HmsException {
+        return patientRepository.existsById(id);
+    }
+
+    @Override
+    public List<DoctorDropdown> getPatientsById(List<Long> ids) throws HmsException {
+        return patientRepository.findAllPatientDropdownsByIds(ids);
+    }
+
+    @Override
+    public List<PatientDTO> getAllPatients() throws HmsException {
+        return ((List<Patient>) patientRepository.findAll()).stream().map(Patient::toDTO).toList();
+    }
+}
+==============================
+./backend/UserMS/src/main/java/com/hms/user/service/UserServiceImpl.java
+==============================
+package com.hms.user.service;
+
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.hms.user.clients.ProfileClient;
+import com.hms.user.dto.Roles;
+import com.hms.user.dto.UserDTO;
+import com.hms.user.entity.User;
+import com.hms.user.exception.HmsException;
+import com.hms.user.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
+
+@Service("userService")
+@Transactional
+public class UserServiceImpl implements UserService {
+
+@Autowired
+private UserRepository userRepository;
+
+@Autowired
+private PasswordEncoder passwordEncoder;
+
+
+@Autowired
+private ProfileClient profileClient;
+
+    @Override
+    public void registerUser(UserDTO userDTO) throws HmsException {
+        Optional <User> opt =  userRepository.findByEmail(userDTO.getEmail());
+        if(opt.isPresent()){
+            throw new HmsException("USER_ALREADY_EXISTS");
+        }
+        userDTO.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        Long profileId = null;
+        if(userDTO.getRole().equals(Roles.DOCTOR)) {
+            profileId = profileClient.addDoctor(userDTO);
+        }
+        else if(userDTO.getRole().equals(Roles.PATIENT)) {
+            profileId = profileClient.addPatient(userDTO);
+        }
+        System.out.println(profileId);
+        userDTO.setProfileId(profileId);
+        userRepository.save(userDTO.toEntity());
+    }
+
+    @Override
+    public UserDTO loginUser(UserDTO userDTO) throws HmsException {
+        User user = userRepository.findByEmail(userDTO.getEmail()).orElseThrow(() -> new HmsException("USER_NOT_FOUND"));
+        if (!passwordEncoder.matches(userDTO.getPassword(), user.getPassword())) {
+            throw new HmsException("INVALID_CREDENTIALS");
+        } 
+        user.setPassword(null);
+        return user.toDTO();
+    }
+
+    @Override
+    public UserDTO getUserById(Long id) throws HmsException{
+        return userRepository.findById(id).orElseThrow(() -> new HmsException("USER_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    public void updateUser(UserDTO userDTO) {
+        // Implementation here
+        throw new UnsupportedOperationException("Unimplemented method 'updateUser'");
+    }
+
+    @Override
+    public UserDTO getUser(String email) throws HmsException {
+       return userRepository.findByEmail(email).orElseThrow(() -> new HmsException("USER_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    public Long getProfilePictureId(Long id) throws HmsException {
+        User user = userRepository.findById(id).orElseThrow(() -> new HmsException("USER_NOT_FOUND"));
+        if (user.getRole() == Roles.DOCTOR) {
+            return profileClient.getDoctorProfilePictureId(user.getProfileId());
+        } else if (user.getRole() == Roles.PATIENT) {
+            return profileClient.getPatientProfilePictureId(user.getProfileId());
+        }
+        return null;
+    }
+
+    @Override
+    public com.hms.user.dto.RegistrationCountsDTO getRegistrationCounts() throws HmsException {
+        long patientCount = userRepository.countByRole(Roles.PATIENT);
+        long doctorCount = userRepository.countByRole(Roles.DOCTOR);
+
+        String currentMonth = java.time.format.DateTimeFormatter.ofPattern("MMMM", java.util.Locale.ENGLISH)
+                .format(java.time.LocalDate.now());
+
+        java.util.List<com.hms.user.dto.MonthlyCountDTO> patientCounts = new java.util.ArrayList<>();
+        java.util.List<com.hms.user.dto.MonthlyCountDTO> doctorCounts = new java.util.ArrayList<>();
+
+        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        long[] mockPatients = {120, 135, 150, 140, 160, 155, 170, 165, 180, 175, 190, 185};
+        long[] mockDoctors = {10, 12, 14, 13, 15, 14, 16, 15, 17, 16, 18, 17};
+
+        for (int i = 0; i < months.length; i++) {
+            if (months[i].equalsIgnoreCase(currentMonth)) {
+                patientCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], patientCount));
+                doctorCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], doctorCount));
+            } else {
+                patientCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], mockPatients[i]));
+                doctorCounts.add(new com.hms.user.dto.MonthlyCountDTO(months[i], mockDoctors[i]));
+            }
+        }
+
+        return new com.hms.user.dto.RegistrationCountsDTO(patientCounts, doctorCounts);
+    }
+
+}
+
+==============================
+./backend/PharmacyMS/src/main/java/com/hms/pharmacyMS/services/MedicineInventoryServiceImpl.java
+==============================
+package com.hms.pharmacyMS.services;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import com.hms.pharmacyMS.dto.MedicineInventoryDTO;
+import com.hms.pharmacyMS.dto.StockStatus;
+import com.hms.pharmacyMS.entity.MedicineInventory;
+import com.hms.pharmacyMS.exception.HmsException;
+import com.hms.pharmacyMS.repository.MedicineInventoryRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class MedicineInventoryServiceImpl implements MedicineInventoryService {
+
+    private final MedicineInventoryRepository medicineInventoryRepository;
+    private final MedicineService medicineService;
+
+    @Override
+    public List<MedicineInventoryDTO> getAllInventoryBatches() throws HmsException {
+        // Now notice something as the list is directly talking with the db we are using
+        // here MedicineInventory not MedicineInventoryDTO
+        List<MedicineInventory> ListOfBatches = medicineInventoryRepository.findAll();
+        return ListOfBatches.stream().map(MedicineInventory::toDTO).toList();
+    }
+
+    @Override
+    public MedicineInventoryDTO getBatchById(Long id) throws HmsException {
+        return medicineInventoryRepository.findById(id).orElseThrow(() -> new HmsException("INVENTORY_NOT_FOUND"))
+                .toDTO();
+    }
+
+
+    @Override
+    @Transactional
+    public MedicineInventoryDTO addMedicineBatch(MedicineInventoryDTO batchDTO) throws HmsException {
+        batchDTO.setAddedDate(LocalDate.now());
+        medicineService.addStock(batchDTO.getMedicineId(), batchDTO.getQuantity());
+        batchDTO.setInitialQuantity(batchDTO.getQuantity());
+        batchDTO.setStatus(StockStatus.ACTIVE);
+        return medicineInventoryRepository.save(batchDTO.toEntity()).toDTO();
+
+    }
+
+    @Override
+    @Transactional
+    public MedicineInventoryDTO updateMedicineBatch(MedicineInventoryDTO batchDTO) throws HmsException {
+
+        MedicineInventory existsInInventory = medicineInventoryRepository.findById(batchDTO.getId())
+                .orElseThrow(() -> new HmsException("INVENTORY_NOT_FOUND"));
+        existsInInventory.setBatchNo(batchDTO.getBatchNo());
+        // Now we need to check for the quantity
+        // Scenario A: The pharmacist typed too little.
+        // Mistake: They typed 100 boxes originally.
+        // Correction: They meant to type 150 boxes.
+        if (existsInInventory.getInitialQuantity() < batchDTO.getQuantity()) {
+            medicineService.addStock(batchDTO.getMedicineId(),
+                    batchDTO.getQuantity() - existsInInventory.getInitialQuantity());
+        }
+        // Scenario B: The pharmacist typed too much.
+        // Mistake: They typed 100 boxes originally.
+        // Correction: They meant to type 80 boxes.
+        else if (existsInInventory.getInitialQuantity() > batchDTO.getQuantity()) {
+            medicineService.removeStock(batchDTO.getMedicineId(),
+                    existsInInventory.getInitialQuantity() - batchDTO.getQuantity());
+        }
+        existsInInventory.setQuantity(batchDTO.getQuantity());
+        existsInInventory.setInitialQuantity(batchDTO.getInitialQuantity());
+        existsInInventory.setExpiryDate(batchDTO.getExpiryDate());
+        return medicineInventoryRepository.save(existsInInventory).toDTO();
+
+    }
+
+    public void markExpired(List<MedicineInventory> inventories) throws HmsException {
+        for (MedicineInventory inventory : inventories) {
+            inventory.setStatus(StockStatus.EXPIRED);
+        }
+        medicineInventoryRepository.saveAll(inventories);
+    }
+
+    @Override
+    @Transactional
+    public void deleteBatch(Long id) throws HmsException {
+        medicineInventoryRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    @Scheduled(cron = "0 10 0 * * ?")
+    // Means here every day at 12:10 am system will automatically check for the
+    // expired medicines and mark them as expired
+    public void deleteExpiredBatches() throws HmsException {
+        List<MedicineInventory> expiredMedicines = medicineInventoryRepository.findByExpiryDateBefore(LocalDate.now());
+        for (MedicineInventory medicine : expiredMedicines) {
+            medicineService.removeStock(medicine.getId(), medicine.getQuantity());
+        }
+        this.markExpired(expiredMedicines);
+        ;
+
+    }
+
+    @Override
+    @Transactional
+    public String sellStock(Long medicineId, Integer quantity) throws HmsException {
+        // fetch the old ones first which are expiring
+        List<MedicineInventory> batches = medicineInventoryRepository
+                .findByMedicineIdAndExpiryDateAfterAndQuantityGreaterThanAndStatusOrderByExpiryDateAsc(medicineId,
+                        LocalDate.now(), 0, StockStatus.ACTIVE);
+        // if batches are empty means medicine is out of stock
+        if (batches.isEmpty()) {
+            throw new HmsException("OUT_OF_STOCK");
+        }
+        // Audit trail to tell exactly which boxes we opened and from where we sold
+        StringBuilder batchDetails = new StringBuilder();
+        // 'remainingQuantity' is our loop counter. It tracks how many pills we still
+        // need to find.
+        int remainingQuantity = quantity;
+        // Now we check FIFO approach
+        for (MedicineInventory inventory : batches) {
+            // OPTIMIZATION: If we fulfilled the customer's order, stop looping immediately.
+            if (remainingQuantity <= 0) {
+                break;
+            }
+            int avaiableQuantity = inventory.getQuantity();
+            // SCENARIO A: The current box DOES NOT have enough to fulfill the whole order.
+            // Example: Customer wants 15, but this box only has 10.
+            if (avaiableQuantity <= remainingQuantity) {
+                // Log that we are emptying this specific batch.
+                batchDetails.append(String.format("Batch %s: %d units\n", inventory.getBatchNo(), avaiableQuantity));
+                // Subtract what we took from our running total. (We still need 5 more).
+                remainingQuantity -= avaiableQuantity;
+                // This box is now empty
+                inventory.setQuantity(0);
+                // Mark as empty (or expired, to get it out of rotation)
+                inventory.setStatus(StockStatus.EXPIRED);
+            }
+            // SCENARIO B: The current box has MORE than enough.
+            // Example: We need 5 pills. This box has 50.
+            else if (avaiableQuantity > remainingQuantity) {
+                // Log that we took the remaining pills from this batch.
+                batchDetails.append(String.format("Batch %s: %d units\n", inventory.getBatchNo(), remainingQuantity));
+
+                // Update the box's quantity. (50 - 5 = 45 left in the box).
+                inventory.setQuantity(avaiableQuantity - remainingQuantity);
+
+                // Our order is fulfilled! Set to 0 so the loop breaks on the next pass.
+                remainingQuantity = 0;
+            }
+        }
+        // 5. THE FINAL SAFETY CHECK
+        // WHY: What if the customer wanted 100 pills, and we looped through ALL
+        // available boxes,
+        // but the sum of all boxes was only 90? The loop finishes, but
+        // remainingQuantity is still 10.
+        if (remainingQuantity > 0) {
+            throw new HmsException("INSUFFICIENT_STOCK");
+            // NOTE: Because of @Transactional, throwing this exception here cancels
+            // everything.
+            // The boxes we emptied in Scenario A will magically revert back to their
+            // original state!
+        }
+        medicineService.removeStock(medicineId, quantity);
+        medicineInventoryRepository.saveAll(batches);
+        return batchDetails.toString();
+    }
+
+}
+
+==============================
+./backend/PharmacyMS/src/main/java/com/hms/pharmacyMS/services/MedicineServiceImpl.java
+==============================
+package com.hms.pharmacyMS.services;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hms.pharmacyMS.dto.MedicineDTO;
+import com.hms.pharmacyMS.entity.Medicine;
+import com.hms.pharmacyMS.exception.HmsException;
+import com.hms.pharmacyMS.repository.MedicineRepository;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class MedicineServiceImpl implements MedicineService{
+
+    private final MedicineRepository medicineRepository;
+
+    @Override
+    @Transactional
+    public Long addMedicine(MedicineDTO medicineDTO) throws HmsException {
+        Optional<Medicine> optional = medicineRepository.findByNameIgnoreCaseAndDosageIgnoreCase(medicineDTO.getName(), medicineDTO.getDosage());
+        if (optional.isPresent()) {
+            throw new HmsException("MEDICINE_ALREADY_EXISTS");
+        }
+        medicineDTO.setStock(0);
+        medicineDTO.setCreatedAt(LocalDateTime.now());
+        return medicineRepository.save(medicineDTO.toEntity()).getId();
+    }
+
+    @Override
+    public MedicineDTO getMedicineById(Long id) throws HmsException {
+        return medicineRepository.findById(id).orElseThrow(() -> new HmsException("MEDICINE_NOT_FOUND")).toDTO();
+    }
+
+    @Override
+    @Transactional
+    public void updateMedicine(MedicineDTO medicineDTO) throws HmsException {
+        Medicine existingMedicine = medicineRepository.findById(medicineDTO.getId())
+                .orElseThrow(() -> new HmsException("MEDICINE_NOT_FOUND"));
+        if (!(medicineDTO.getName().equalsIgnoreCase(existingMedicine.getName()) && medicineDTO.getDosage().equalsIgnoreCase(existingMedicine.getDosage()))) {
+            Optional<Medicine> optional = medicineRepository.findByNameIgnoreCaseAndDosageIgnoreCase(medicineDTO.getName(), medicineDTO.getDosage());
+            if (optional.isPresent()) {
+                throw new HmsException("MEDICINE_ALREADY_EXISTS");
+            }
+        }
+        existingMedicine.setName(medicineDTO.getName());
+        existingMedicine.setDosage(medicineDTO.getDosage());
+        existingMedicine.setCategory(medicineDTO.getCategory());
+        existingMedicine.setType(medicineDTO.getType());
+        existingMedicine.setManufacturer(medicineDTO.getManufacturer());
+        existingMedicine.setUnitPrice(medicineDTO.getUnitPrice());
+        medicineRepository.save(existingMedicine);
+    }
+
+    @Override
+    public List<MedicineDTO> getAllMedicines() throws HmsException {
+
+        return ((List<Medicine>) medicineRepository.findAll()).stream()
+                .map(Medicine::toDTO).toList();
+    }
+
+    @Override
+    public Integer getStockById(Long id) throws HmsException {
+        return medicineRepository.findStockById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
+    }
+
+    @Override
+    @Transactional
+    public Integer addStock(Long id, Integer quantity) throws HmsException {
+        Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
+        medicine.setStock(medicine.getStock() != null? medicine.getStock() + quantity : quantity );
+        medicineRepository.save(medicine);
+        return medicine.getStock();
+    }
+
+    @Override
+    @Transactional
+    public Integer removeStock(Long id, Integer quantity) throws HmsException {
+        Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
+        // if medicine is not found throw exception
+        medicine.setStock(medicine.getStock() != null? medicine.getStock()-quantity : 0 ); 
+        // Here we are checking and subtracting the stock from the quantity of medicine 
+        medicineRepository.save(medicine);
+        return medicine.getStock();
+    }
+} 
+==============================
+./backend/PharmacyMS/src/main/java/com/hms/pharmacyMS/services/SaleItemServiceImpl.java
+==============================
+package com.hms.pharmacyMS.services;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.hms.pharmacyMS.dto.SaleItemDTO;
+import com.hms.pharmacyMS.entity.Medicine;
+import com.hms.pharmacyMS.entity.SaleItem;
+import com.hms.pharmacyMS.exception.HmsException;
+import com.hms.pharmacyMS.repository.SaleItemRepository;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class SaleItemServiceImpl implements SaleItemService{
+    private final SaleItemRepository saleItemRepository;
+    private final MedicineInventoryService medicineInventoryService;
+
+
+    @Override
+    public Long createSaleItem(SaleItemDTO saleItemDTO) throws HmsException {
+        return saleItemRepository.save(saleItemDTO.toEntity()).getId();
+    }
+
+    @Override
+    public void createSaleItem(Long saleId, List<SaleItemDTO> saleItemDTOS) throws HmsException {
+        saleItemDTOS.stream().map((x) -> {
+            x.setSaleId(saleId);
+            return x.toEntity();
+        }).forEach(saleItemRepository::save);
+    }
+
+    @Override
+    public void createMultipleSaleItem(Long saleId, Long medicineId, List<SaleItemDTO> saleItemDTOS)
+            throws HmsException {
+            saleItemDTOS.stream().map((x)->{
+                x.setSaleId(saleId);
+                x.setMedicineId(medicineId);
+                return x.toEntity();
+            }).forEach(saleItemRepository::save);
+    }
+
+    @Override
+    public void updateSaleItem(SaleItemDTO saleItemDTO) throws HmsException {
+       SaleItem sale = saleItemRepository.findById(saleItemDTO.getId()).orElseThrow(()-> new HmsException("SALE_ITEM_NOT_FOUND"));
+       sale.setQuantity(saleItemDTO.getQuantity());
+       sale.setUnitPrice(saleItemDTO.getUnitPrice());
+       saleItemRepository.save(sale);
+    }
+
+    @Override
+    public List<SaleItemDTO> getSaleItemsBySaleId(Long saleId) throws HmsException {
+        return saleItemRepository.findBySaleId(saleId).stream().map(SaleItem::toDTO).toList();
+    }
+
+    @Override
+    public SaleItemDTO getSaleItem(Long id) throws HmsException {
+        return saleItemRepository.findById(id).map(SaleItem::toDTO).orElseThrow(()-> new HmsException("SALE_ITEM_NOT_FOUND"));
+    }
+    
+}
+
+==============================
+./backend/PharmacyMS/src/main/java/com/hms/pharmacyMS/services/SaleServiceImpl.java
+==============================
+package com.hms.pharmacyMS.services;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hms.pharmacyMS.dto.SaleDTO;
+import com.hms.pharmacyMS.dto.SaleItemDTO;
+import com.hms.pharmacyMS.entity.Sale;
+import com.hms.pharmacyMS.entity.SaleRequest;
+import com.hms.pharmacyMS.exception.HmsException;
+import com.hms.pharmacyMS.repository.MedicineInventoryRepository;
+import com.hms.pharmacyMS.repository.SaleItemRepository;
+import com.hms.pharmacyMS.repository.SaleRepository;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class SaleServiceImpl implements SaleService{
+    private final SaleItemService saleItemService;
+    private final SaleItemRepository saleItemRepository;
+	private final MedicineInventoryService medicineInventoryService;
+    private final SaleRepository saleRepository;
+
+
+    @Override
+    @Transactional
+    public Long createSale(SaleRequest dto) throws HmsException {
+        if(dto.getPrescriptionId()!= null && saleRepository.existsByPrescriptionId(dto.getPrescriptionId())){
+            throw new HmsException("SALES_ALREADY_EXISTS");
+        }
+        // We are going to create sale and sale items in the same transaction
+        for(SaleItemDTO saleItemDTO : dto.getSaleItems()){
+            saleItemDTO.setBatchNo(medicineInventoryService.sellStock(saleItemDTO.getMedicineId(), saleItemDTO.getQuantity()));
+        }
+        Sale sale = new Sale(null , dto.getPrescriptionId(), dto.getBuyerName(), dto.getBuyerContact(), LocalDateTime.now(), dto.getTotalAmount());
+        sale = saleRepository.save(sale);
+        saleItemService.createSaleItem(sale.getId(), dto.getSaleItems());
+        return sale.getId();
+    }
+
+    @Override
+    public void updateSale(SaleDTO dto) throws HmsException {
+        Sale sale = saleRepository.findById(dto.getId()).orElseThrow(()-> new HmsException("SALE_NOT_FOUND"));
+        sale.setSaleDate(dto.getSaleDate());
+        sale.setTotalAmount(dto.getTotalAmount());
+        saleRepository.save(sale);
+    }
+
+    @Override
+    public SaleDTO getSale(Long id) throws HmsException {
+        return saleRepository.findById(id).map(Sale::toDTO).orElseThrow(()-> new HmsException("SALE_NOT_FOUND"));
+    }
+
+    @Override
+    public SaleDTO getSaleByPrescriptionId(Long prescriptionId) throws HmsException {
+       return saleRepository.findByPrescriptionId(prescriptionId).map(Sale::toDTO).orElseThrow(()-> new HmsException("SALE_NOT_FOUND"));
+    }
+
+    @Override
+    public List<SaleDTO> getAllSales() throws HmsException {
+        return saleRepository.findAll().stream().map(Sale::toDTO).toList();
+    }
+    
+}
+

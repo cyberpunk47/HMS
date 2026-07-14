@@ -194,7 +194,7 @@ const Inventory = () => {
                             rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
                             filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                            emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                            emptyMessage="No Inventory found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
                             <Column field="name" header="Medicine" body={(rowdata) => <span >{medicineMap["" + rowdata.medicineId]?.name} <span className="text-xs text-gray-700">{medicineMap["" + rowdata.medicineId]?.manufacturer}</span></span>} />
                             <Column field="batchNo" header="Batch No." />
                             <Column field="initialQuantity" header="Quantity" />

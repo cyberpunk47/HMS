@@ -49,6 +49,7 @@
   background-color: #F0F3FB;
 }
 
+
 @layer base {
   body {
     @apply font-sans bg-background text-foreground; /* Applies Poppins to body */

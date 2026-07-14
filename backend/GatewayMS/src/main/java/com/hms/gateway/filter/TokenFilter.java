@@ -39,9 +39,8 @@ public class TokenFilter extends AbstractGatewayFilterFactory<TokenFilter.Config
 
             try{
                 Claims claim = Jwts.parser().setSigningKey(SECRET).parseClaimsJws(token).getBody();
-                exchange = exchange.mutate().request(r->r.header("X-User-Id", "SECRET").header("X-Secret-Key", "SECRET")).build();
-
-
+                String userId = String.valueOf(claim.get("id"));
+                exchange = exchange.mutate().request(r->r.header("X-User-Id", userId).header("X-Secret-Key", "SECRET")).build();
             }
             catch(Exception e){
                 throw new RuntimeException("Token is invalid");

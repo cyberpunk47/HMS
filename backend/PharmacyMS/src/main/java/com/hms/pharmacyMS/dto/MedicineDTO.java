@@ -16,8 +16,8 @@ import lombok.NoArgsConstructor;
 public class MedicineDTO {
     private Long id;
     private String name;
+    private String dosage;
     private String description;
-     private String dosage;
 
     private MedicineCategory category; // Antibiotic , viral or other
     private MedicineType type; // tablet , injection or other
@@ -30,6 +30,6 @@ public class MedicineDTO {
     private LocalDateTime createdAt;
 
     public Medicine toEntity(){
-        return new Medicine(id, name, description, dosage, category, type, manufacturer, unitPrice, stock, mfd, expDate, notes, createdAt);
+        return new Medicine(id, name, dosage, description, category, type, manufacturer, unitPrice, stock, mfd, expDate, notes, createdAt);
     }
 }

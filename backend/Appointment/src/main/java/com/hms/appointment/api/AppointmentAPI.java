@@ -25,7 +25,7 @@ public class AppointmentAPI {
 
     @PostMapping("/schedule")
     public ResponseEntity<Long> scheduleAppointment(@RequestBody AppointmentDTO appointmentDTO) throws HmsException {
-        System.out.println("----> "+ appointmentDTO.toString());
+        System.out.println("----> " + appointmentDTO.toString());
         return new ResponseEntity<>(appointmentService.scheduleAppointment(appointmentDTO), HttpStatus.CREATED);
     }
 
@@ -39,37 +39,41 @@ public class AppointmentAPI {
     public ResponseEntity<AppointmentDTO> getAppointmentDetails(@PathVariable Long appointmentId) throws HmsException {
         return new ResponseEntity<>(appointmentService.getAppointmentDetails(appointmentId), HttpStatus.OK);
     }
-    
+
     @GetMapping("/get/details/{appointmentId}")
-    public ResponseEntity<AppointmentDetails> getAppointmentDetailsWithName(@PathVariable Long appointmentId) throws HmsException{
+    public ResponseEntity<AppointmentDetails> getAppointmentDetailsWithName(@PathVariable Long appointmentId)
+            throws HmsException {
         return new ResponseEntity<>(appointmentService.getAppointmentDetailsWithName(appointmentId), HttpStatus.OK);
     }
 
     @GetMapping("/getAllByPatient/{patientId}")
-    public ResponseEntity<List<AppointmentDetails>> getAllAppointmentByPatientId(@PathVariable Long patientId)throws HmsException{
-        return new ResponseEntity<>(appointmentService.getAllAppointmentsByPatientId(patientId),HttpStatus.OK);
+    public ResponseEntity<List<AppointmentDetails>> getAllAppointmentByPatientId(@PathVariable Long patientId)
+            throws HmsException {
+        return new ResponseEntity<>(appointmentService.getAllAppointmentsByPatientId(patientId), HttpStatus.OK);
     }
 
     @GetMapping("/getAllByDoctor/{doctorId}")
-    public ResponseEntity<List<AppointmentDetails>> getAllAppointmentsByDoctor(@PathVariable Long doctorId) throws HmsException{
+    public ResponseEntity<List<AppointmentDetails>> getAllAppointmentsByDoctor(@PathVariable Long doctorId)
+            throws HmsException {
         return new ResponseEntity<>(appointmentService.getAllAppointmentsByDoctorId(doctorId), HttpStatus.OK);
     }
 
     @GetMapping("/countByPatient/{patientId}")
-    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCountByPatientId(@PathVariable Long patientId) throws HmsException{
+    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCountByPatientId(@PathVariable Long patientId)
+            throws HmsException {
         return new ResponseEntity<>(appointmentService.getAppointmentCountByPatient(patientId), HttpStatus.OK);
     }
 
     @GetMapping("/countByDoctor/{doctorId}")
-    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCountByDoctorId(@PathVariable Long doctorId) throws HmsException{
+    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCountByDoctorId(@PathVariable Long doctorId)
+            throws HmsException {
         return new ResponseEntity<>(appointmentService.getAppointmentCountByDoctor(doctorId), HttpStatus.OK);
     }
 
     @GetMapping("/visitCount")
-    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCounts() throws HmsException{
+    public ResponseEntity<List<MonthlyVisitDTO>> getAppointmentCounts() throws HmsException {
         return new ResponseEntity<>(appointmentService.getAppointmentCounts(), HttpStatus.OK);
     }
-
 
     @GetMapping("/countReasonByPatient/{patientId}")
     public ResponseEntity<List<ReasonCountDTO>> getReasonsByPatient(@PathVariable Long patientId) {
@@ -95,4 +99,15 @@ public class AppointmentAPI {
     public ResponseEntity<List<AppointmentDetails>> getTodayAppointment() throws HmsException {
         return new ResponseEntity<>(appointmentService.getTodaysAppointments(), HttpStatus.OK);
     }
+
+    @GetMapping("/patients/doctor/{doctorId}")
+    public ResponseEntity<List<Long>> getPatientIdsByDoctorId(@PathVariable Long doctorId) {
+        return new ResponseEntity<>(appointmentService.getPatientIdsByDoctorId(doctorId), HttpStatus.OK);
+    }
+
+    @GetMapping("/patients/doctor/{doctorId}/metrics")
+    public ResponseEntity<List<MonthlyVisitDTO>> getUniquePatientCountsByDoctor(@PathVariable Long doctorId) {
+        return new ResponseEntity<>(appointmentService.getUniquePatientCountsByDoctor(doctorId), HttpStatus.OK);
+    }
+
 }

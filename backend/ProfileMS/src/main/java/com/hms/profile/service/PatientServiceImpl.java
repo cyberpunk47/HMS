@@ -19,11 +19,14 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     public Long addPatient(PatientDTO patientDTO) throws HmsException {
+
         if (patientDTO.getEmail() != null && patientRepository.findByEmail(patientDTO.getEmail()).isPresent())
             throw new HmsException("PATIENT_ALREADY_EXISTS");
         if (patientDTO.getAadharNo() != null && patientRepository.findByAadharNo(patientDTO.getAadharNo()).isPresent())
             throw new HmsException("PATIENT_ALREADY_EXISTS");
-        return patientRepository.save(patientDTO.toEntity()).getId();
+
+        Long id = patientRepository.save(patientDTO.toEntity()).getId();
+        return id;
     }
 
     @Override
@@ -50,5 +53,13 @@ public class PatientServiceImpl implements PatientService {
     @Override
     public List<PatientDTO> getAllPatients() throws HmsException {
         return ((List<Patient>) patientRepository.findAll()).stream().map(Patient::toDTO).toList();
+    }
+
+    @Override
+    public List<PatientDTO> getPatientsByIds(List<Long> ids) throws HmsException {
+        return ((List<Patient>) patientRepository.findAllById(ids))
+                .stream()
+                .map(Patient::toDTO)
+                .toList();
     }
 }

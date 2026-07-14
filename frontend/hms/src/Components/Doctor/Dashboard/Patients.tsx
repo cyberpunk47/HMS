@@ -8,22 +8,25 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { useEffect, useState } from 'react';
-import { getAllPatients } from '../../../Service/PatientProfileService';
+import { useQuery } from '@tanstack/react-query';
+import { getPatientsDetailsByIds } from '../../../Service/PatientProfileService';
+import { getPatientIdsByDoctor } from '../../../Service/AppointmentService';
+import { useSelector } from 'react-redux';
 import { bloodGroupMap } from '../../../data/DropdownData';
 
 const Patients = () => {
-    const [patients, setPatients] = useState<any[]>([]);
+    const user = useSelector((state: any) => state.user);
 
-    useEffect(() => {
-        getAllPatients()
-            .then((data) => {
-                setPatients(data);
-            })
-            .catch((error) => {
-                console.log(error);
-            });
-    }, []);
+    const { data: patients = [], isLoading } = useQuery({
+        queryKey: ["doctorDashboardPatients", user?.profileId],
+        queryFn: async () => {
+            if (!user?.profileId) return [];
+            const ids = await getPatientIdsByDoctor(user.profileId);
+            if (!ids || ids.length === 0) return [];
+            return getPatientsDetailsByIds(ids);
+        },
+        enabled: !!user?.profileId,
+    });
 
     return (
         <Card className="hover:shadow-md transition-shadow">
@@ -31,7 +34,7 @@ const Patients = () => {
                 <div className="flex items-center justify-between">
                     <div>
                         <CardTitle>Patients</CardTitle>
-                        <CardDescription>All registered patients</CardDescription>
+                        <CardDescription>Your patients</CardDescription>
                     </div>
                     <Badge variant="secondary" className="text-xs">
                         {patients.length} total
@@ -39,7 +42,11 @@ const Patients = () => {
                 </div>
             </CardHeader>
             <CardContent>
-                {patients.length > 0 ? (
+                {isLoading ? (
+                    <div className="py-12 text-center text-sm text-gray-400">
+                        Loading patients...
+                    </div>
+                ) : patients.length > 0 ? (
                     <div className="max-h-[300px] overflow-y-auto">
                         <Table>
                             <TableHeader>
@@ -51,7 +58,7 @@ const Patients = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {patients.map((pt, idx) => (
+                                {patients.map((pt: any, idx: number) => (
                                     <TableRow key={idx}>
                                         <TableCell className="font-medium">{pt.name}</TableCell>
                                         <TableCell className="text-gray-500">{pt.email}</TableCell>

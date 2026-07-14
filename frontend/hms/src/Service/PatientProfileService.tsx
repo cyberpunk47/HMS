@@ -17,6 +17,13 @@ const getAllPatients = async () => {
         .then((response:any) => response.data)
         .catch((error:any) => {throw error;})
 }
+const getPatientsDetailsByIds = async (ids: number[]) => {
+    return axiosInstance.get(`/profile/patient/getPatientsDetailsByIds`, {
+        params: { ids: ids.join(',') }
+    })
+    .then((response: any) => response.data)
+    .catch((error: any) => { throw error; })
+}
 
 
-export { getPatient, updatePatient, getAllPatients }
+export { getPatient, updatePatient, getAllPatients , getPatientsDetailsByIds}

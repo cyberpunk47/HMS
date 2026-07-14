@@ -2,6 +2,21 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Analyzer",
+            "request": "launch",
+            "mainClass": "com.hms.testtools.util.Analyzer",
+            "projectName": "HMSTestSuite"
+        },
+        {
+            "type": "java",
+            "name": "HmsTestSuiteApplication",
+            "request": "launch",
+            "mainClass": "com.hms.testtools.HmsTestSuiteApplication",
+            "projectName": "HMSTestSuite",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=42793 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=HMSTestSuite"
+        },
+        {
+            "type": "java",
             "name": "Spring Boot-GatewayMsApplication<GatewayMS>",
             "request": "launch",
             "cwd": "${workspaceFolder}",
@@ -73,7 +88,8 @@
             "mainClass": "com.hms.pharmacyMS.PharmacyMsApplication",
             "projectName": "PharmacyMS",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=40125 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=PharmacyMS"
         }
     ]
 }

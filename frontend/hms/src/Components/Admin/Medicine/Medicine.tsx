@@ -174,12 +174,13 @@ const Medicine = () => {
         <div>
             {
                 !edit ? <div><Toolbar className="mb-4 !p-1" start={startToolbarTemplate} end={rightToolbarTemplate} ></Toolbar>
-                    {view == "table" ? <DataTable value={data} stripedRows size='small' paginator rows={10}
+                    {view == "table" ? 
+                    <DataTable value={data} stripedRows size='small' paginator rows={10}
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
                         filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                        emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                        emptyMessage="No medicines found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
                         <Column field="name" header="Name" />
                         <Column field="reportDate" header="Report Date" sortable filterPlaceholder="Search by name" body={(rowData) => formatDate(rowData.createdAt)} />
                         <Column field="dosage" header="Dosage" />

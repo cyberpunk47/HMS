@@ -40,4 +40,10 @@ public interface AppointmentService {
     List<AppointmentDetails> getTodaysAppointments();
 
     void markExpiredAppointments();
+
+    // patient related to only one doctor
+    List<Long> getPatientIdsByDoctorId(Long doctorId);
+
+    List<MonthlyVisitDTO> getUniquePatientCountsByDoctor(Long doctorId);
+
 }

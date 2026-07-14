@@ -37,6 +37,6 @@ public class Medicine {
         this.id = id;
     }
     public MedicineDTO toDTO(){
-        return new MedicineDTO(id, name, description, dosage, category, type, manufacturer, unitPrice, stock, mfd, expDate, notes, createdAt);
+        return new MedicineDTO(id, name, dosage, description, category, type, manufacturer, unitPrice, stock, mfd, expDate, notes, createdAt);
     }
 }

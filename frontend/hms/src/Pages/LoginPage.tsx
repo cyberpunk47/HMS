@@ -45,7 +45,7 @@ const LoginPage = () => {
         })
     };
     return (
-        <div style={{ background: 'url("/bg.jpg")' }} className="h-screen w-screen !bg-cover !bg-center !bg-no-repeat flex flex-col items-center justify-center ">
+        <div className="h-screen w-screen !bg-cover !bg-center !bg-no-repeat flex flex-col items-center justify-center bg-gradient-to-br from-[#072c2b] via-[#165955] to-[#072c2b]">
             <div className="py-3 text-pink-400 flex gap-1 items-center">
                 <IconHeartbeat size={45} stroke={2.5} />
                 <span className="font-heading font-semibold text-4xl">Pulse</span>

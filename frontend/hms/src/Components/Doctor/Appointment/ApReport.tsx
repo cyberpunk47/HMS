@@ -244,7 +244,7 @@ const ApReport = ({ appointment }: any) => {
                         rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
                         filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                        emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                        emptyMessage="No Report found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
                         <Column field="doctorName" header="Doctor" />
                         <Column field="diagnosis" header="Diagnosis" />
                         <Column field="reportDate" header="Report Date" sortable filterPlaceholder="Search by name" body={(rowData) => formatDate(rowData.createdAt)} />

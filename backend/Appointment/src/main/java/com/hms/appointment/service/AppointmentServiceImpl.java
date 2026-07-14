@@ -4,8 +4,8 @@ import com.hms.appointment.clients.ProfileClient;
 import com.hms.appointment.dto.*;
 import com.hms.appointment.entity.Appointment;
 import com.hms.appointment.exception.HmsException;
+import com.hms.appointment.producer.AppointmentEventProducer;
 import com.hms.appointment.repository.AppointmentRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,27 +17,40 @@ import java.util.List;
 
 @Service
 public class AppointmentServiceImpl implements AppointmentService {
-    @Autowired
-    private AppointmentRepository appointmentRepository;
 
-    @Autowired
-    private ApiService apiService;
+    private final AppointmentRepository appointmentRepository;
+    private final ApiService apiService;
+    private final ProfileClient profileClient;
+    private final AppointmentEventProducer appointmentEventProducer;
 
-    @Autowired
-    private ProfileClient profileClient;
+    public AppointmentServiceImpl(
+            AppointmentRepository appointmentRepository,
+            ApiService apiService,
+            ProfileClient profileClient,
+            AppointmentEventProducer appointmentEventProducer) {
+
+        this.appointmentRepository = appointmentRepository;
+        this.apiService = apiService;
+        this.profileClient = profileClient;
+        this.appointmentEventProducer = appointmentEventProducer;
+    }
 
     @Override
     @Transactional
     public Long scheduleAppointment(AppointmentDTO appointmentDTO) throws HmsException {
-        Boolean doctorExists = profileClient.doctorExists(appointmentDTO.getDoctorId());
-        if (doctorExists == null || !doctorExists) {
+        // 1 feign CAll each for optimization
+        DoctorDTO doctor = profileClient.getDoctorById(appointmentDTO.getDoctorId());
+        PatientDTO patient = profileClient.getPatientById(appointmentDTO.getPatientId());
+
+        
+        if (doctor == null) {
             throw new HmsException("DOCTOR_NOT_FOUND");
         }
 
-        Boolean patientExists = profileClient.patientExists(appointmentDTO.getPatientId());
-        if (patientExists == null || !patientExists) {
+        if (patient == null) {
             throw new HmsException("PATIENT_NOT_FOUND");
         }
+
         if (appointmentDTO.getAppointmentTime().isBefore(LocalDateTime.now())) {
             throw new HmsException("APPOINTMENT_TIME_IS_IN_PAST");
         }
@@ -49,8 +62,15 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointmentDTO.getAppointmentTime())) {
             throw new HmsException("PATIENT_ALREADY_HAVE_APPOINTMENT_AT_THIS_TIME");
         }
+
         appointmentDTO.setStatus(Status.SCHEDULED);
-        return appointmentRepository.save(appointmentDTO.toEntity()).getId();
+        // Save once
+        Appointment appointment = appointmentRepository.save(appointmentDTO.toEntity());
+
+        // Publish Event 
+        appointmentEventProducer.publishAppointmentCreated(appointment, doctor, patient);
+
+        return appointment.getId();    
     }
 
     @Override
@@ -65,8 +85,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (appointment.getAppointmentTime().isBefore(LocalDateTime.now())) {
             throw new HmsException("CANNOT_CANCEL_APPOINTMENT_TIME_IS_IN_PAST");
         }
+        DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+        PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
         appointment.setStatus(Status.CANCELLED);
         appointmentRepository.save(appointment);
+        appointmentEventProducer.publishAppointmentCancelled(appointment, doctorDTO, patientDTO);
     }
 
     @Override
@@ -80,8 +103,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (appointment.getAppointmentTime().isAfter(LocalDateTime.now().plusHours(1))) {
             throw new HmsException("CANNOT_COMPLETE_FUTURE_APPOINTMENT");
         }
+        DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+        PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
         appointment.setStatus(Status.COMPLETED);
         appointmentRepository.save(appointment);
+        appointmentEventProducer.publishAppointmentCompleted(appointment, doctorDTO, patientDTO);
         return appointment.toDTO();
     }
 
@@ -104,8 +130,15 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (appointmentRepository.existsByDoctorIdAndAppointmentTime(appointment.getDoctorId(), parsedDateTime)) {
             throw new HmsException("DOCTOR_NOT_AVAILABLE_AT_THIS_TIME");
         }
-
+        // First save the old date time 
+        LocalDateTime oldDateTime = appointment.getAppointmentTime();
+        // Save the the new parsed date in the appointment
         appointment.setAppointmentTime(parsedDateTime);
+        // Publish the event
+        DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+        PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+        appointmentEventProducer.publishAppointmentRescheduled(appointment, doctorDTO, patientDTO, oldDateTime);
+
         return appointmentRepository.save(appointment).toDTO();
 
     }
@@ -120,10 +153,31 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentDetails getAppointmentDetailsWithName(Long appointmentId) throws HmsException {
         AppointmentDTO appointmentDTO = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new HmsException("APPOINTMENT_NOT_FOUND")).toDTO();
-        DoctorDTO doctorDTO = profileClient.getDoctorById(appointmentDTO.getDoctorId());
-        PatientDTO patientDTO = profileClient.getPatientById(appointmentDTO.getPatientId());
-        return new AppointmentDetails(appointmentDTO.getId(), appointmentDTO.getPatientId(), patientDTO.getName(),
-                patientDTO.getEmail(), patientDTO.getPhone(), appointmentDTO.getDoctorId(), doctorDTO.getName(),
+        
+        String doctorName = "Unknown Doctor";
+        try {
+            DoctorDTO doctorDTO = profileClient.getDoctorById(appointmentDTO.getDoctorId());
+            if (doctorDTO != null) doctorName = doctorDTO.getName();
+        } catch (Exception e) {
+            // Logged or handled gracefully
+        }
+
+        String patientName = "Unknown Patient";
+        String patientEmail = null;
+        String patientPhone = null;
+        try {
+            PatientDTO patientDTO = profileClient.getPatientById(appointmentDTO.getPatientId());
+            if (patientDTO != null) {
+                patientName = patientDTO.getName();
+                patientEmail = patientDTO.getEmail();
+                patientPhone = patientDTO.getPhone();
+            }
+        } catch (Exception e) {
+            // Logged or handled gracefully
+        }
+
+        return new AppointmentDetails(appointmentDTO.getId(), appointmentDTO.getPatientId(), patientName,
+                patientEmail, patientPhone, appointmentDTO.getDoctorId(), doctorName,
                 appointmentDTO.getAppointmentTime(), appointmentDTO.getStatus(), appointmentDTO.getReason(),
                 appointmentDTO.getNotes());
     }
@@ -132,8 +186,14 @@ public class AppointmentServiceImpl implements AppointmentService {
     public List<AppointmentDetails> getAllAppointmentsByPatientId(Long patientId) throws HmsException {
         return appointmentRepository.findAllByPatientId(patientId).stream()
                 .map(appointment -> {
-                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
-                    appointment.setDoctorName(doctorDTO.getName());
+                    String doctorName = "Unknown Doctor";
+                    try {
+                        DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                        if (doctorDTO != null) doctorName = doctorDTO.getName();
+                    } catch (Exception e) {
+                        // Resilient fallback
+                    }
+                    appointment.setDoctorName(doctorName);
                     return appointment;
                 }).toList();
     }
@@ -142,14 +202,24 @@ public class AppointmentServiceImpl implements AppointmentService {
     public List<AppointmentDetails> getAllAppointmentsByDoctorId(Long doctorId) throws HmsException {
         return appointmentRepository.findAllByDoctortId(doctorId).stream()
                 .map(appointment -> {
-                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
-                    appointment.setPatientName(patientDTO.getName());
-                    appointment.setPatientEmail(patientDTO.getEmail());
-                    appointment.setPatientPhone(patientDTO.getPhone());
+                    String patientName = "Unknown Patient";
+                    String patientEmail = null;
+                    String patientPhone = null;
+                    try {
+                        PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                        if (patientDTO != null) {
+                            patientName = patientDTO.getName();
+                            patientEmail = patientDTO.getEmail();
+                            patientPhone = patientDTO.getPhone();
+                        }
+                    } catch (Exception e) {
+                        // Resilient fallback
+                    }
+                    appointment.setPatientName(patientName);
+                    appointment.setPatientEmail(patientEmail);
+                    appointment.setPatientPhone(patientPhone);
                     return appointment;
-                }
-
-                ).toList();
+                }).toList();
     }
 
     @Override
@@ -189,11 +259,31 @@ public class AppointmentServiceImpl implements AppointmentService {
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
         return appointmentRepository.findByAppointmentTimeBetween(startOfDay, endOfDay).stream().map(
                 appointment -> {
-                    DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
-                    PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
-                    return new AppointmentDetails(appointment.getId(), appointment.getPatientId(), patientDTO.getName(),
-                            patientDTO.getEmail(), patientDTO.getPhone(), appointment.getDoctorId(),
-                            doctorDTO.getName(), appointment.getAppointmentTime(), appointment.getStatus(),
+                    String doctorName = "Unknown Doctor";
+                    try {
+                        DoctorDTO doctorDTO = profileClient.getDoctorById(appointment.getDoctorId());
+                        if (doctorDTO != null) doctorName = doctorDTO.getName();
+                    } catch (Exception e) {
+                        // Resilient fallback
+                    }
+
+                    String patientName = "Unknown Patient";
+                    String patientEmail = null;
+                    String patientPhone = null;
+                    try {
+                        PatientDTO patientDTO = profileClient.getPatientById(appointment.getPatientId());
+                        if (patientDTO != null) {
+                            patientName = patientDTO.getName();
+                            patientEmail = patientDTO.getEmail();
+                            patientPhone = patientDTO.getPhone();
+                        }
+                    } catch (Exception e) {
+                        // Resilient fallback
+                    }
+
+                    return new AppointmentDetails(appointment.getId(), appointment.getPatientId(), patientName,
+                            patientEmail, patientPhone, appointment.getDoctorId(),
+                            doctorName, appointment.getAppointmentTime(), appointment.getStatus(),
                             appointment.getReason(), appointment.getNotes());
                 }).toList();
     }
@@ -209,12 +299,25 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         for (Appointment appt : expiredAppointments) {
             appt.setStatus(Status.EXPIRED);
+            DoctorDTO doctorDTO = profileClient.getDoctorById(appt.getDoctorId());
+            PatientDTO patientDTO = profileClient.getPatientById(appt.getPatientId());
+            appointmentEventProducer.publishAppointmentExpired(appt, doctorDTO, patientDTO);
         }
 
         // Save them all in one batch
         if (!expiredAppointments.isEmpty()) {
             appointmentRepository.saveAll(expiredAppointments);
         }
+    }
+
+    @Override
+    public List<Long> getPatientIdsByDoctorId(Long doctorId) {
+        return appointmentRepository.findDistinctPatientIdsByDoctorId(doctorId);
+    }
+
+    @Override
+    public List<MonthlyVisitDTO> getUniquePatientCountsByDoctor(Long doctorId) {
+        return appointmentRepository.countCurrentYearPatientsByDoctor(doctorId);
     }
 
 }

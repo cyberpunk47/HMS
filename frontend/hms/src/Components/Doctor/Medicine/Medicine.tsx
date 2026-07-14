@@ -1,6 +1,6 @@
 import { ActionIcon, Button, Fieldset, NumberInput, SegmentedControl, Select, TextInput } from "@mantine/core";
 import { medicineCategories, medicineTypes } from "../../../data/DropdownData";
-import { IconEdit, IconLayoutGrid, IconSearch, IconTable } from "@tabler/icons-react";
+import { IconEdit, IconLayoutGrid, IconSearch, IconTable, IconArrowUp, IconArrowDown } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
 import { errorNotification, successNotification } from "../../../Utility/NotificationUtil";
 import { useEffect, useState } from "react";
@@ -43,6 +43,8 @@ const Medicine = () => {
     };
     const [data, setData] = useState<any[]>([])
     const [view, setView] = useState("table")
+    const [sortField, setSortField] = useState<string>("name");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     const [edit, setEdit] = useState<boolean>(false)
     const [loading, setLoading] = useState(false);
     const form = useForm({
@@ -138,9 +140,59 @@ const Medicine = () => {
         )
     }
 
+    const sortedData = [...data].sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+
+        if (sortField === "expDate") {
+            const aDate = a.expDate ? new Date(a.expDate).getTime() : 0;
+            const bDate = b.expDate ? new Date(b.expDate).getTime() : 0;
+            return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
+        }
+
+        if (sortField === "expired") {
+            const aExpired = a.expDate ? (new Date(a.expDate) < new Date()) : false;
+            const bExpired = b.expDate ? (new Date(b.expDate) < new Date()) : false;
+            if (aExpired === bExpired) return 0;
+            if (aExpired) return sortOrder === "asc" ? 1 : -1;
+            return sortOrder === "asc" ? -1 : 1;
+        }
+
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+        if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+    });
+
+    const expiryBodyTemplate = (rowData: any) => {
+        if (!rowData.expDate) return "N/A";
+        const isExpired = new Date(rowData.expDate) < new Date();
+        return (
+            <span className={isExpired ? "text-red-500 font-semibold" : "text-green-500 font-semibold"}>
+                {formatDate(rowData.expDate)} {isExpired ? "(Expired)" : ""}
+            </span>
+        );
+    };
+
     const rightToolbarTemplate = () => {
         return (
             <div className="flex flex-wrap gap-2 justify-end items-center">
+                <Select
+                    placeholder="Sort by"
+                    value={sortField}
+                    onChange={(val) => val && setSortField(val)}
+                    data={[
+                        { value: "name", label: "Name" },
+                        { value: "expDate", label: "Expiry Date" },
+                        { value: "expired", label: "Expiration Status" }
+                    ]}
+                    style={{ width: 150 }}
+                />
+                <ActionIcon onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")} variant="light" size="lg">
+                    {sortOrder === "asc" ? <IconArrowUp size={20} /> : <IconArrowDown size={20} />}
+                </ActionIcon>
                 <SegmentedControl
                     value={view}
                     color='primary'
@@ -174,26 +226,27 @@ const Medicine = () => {
         <div>
             {
                 !edit ? <div><Toolbar className="mb-4 !p-1" end={rightToolbarTemplate} ></Toolbar>
-                    {view == "table" ? <DataTable value={data} stripedRows size='small' paginator rows={10}
+                    {view == "table" ? <DataTable value={sortedData} stripedRows size='small' paginator rows={10}
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
-                        filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                        emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
-                        <Column field="name" header="Name" />
-                        <Column field="reportDate" header="Report Date" sortable filterPlaceholder="Search by name" body={(rowData) => formatDate(rowData.createdAt)} />
+                        filters={filters} filterDisplay="menu" globalFilterFields={['name', 'manufacturer', 'category', 'type']}
+                        emptyMessage="No Medicines found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                        <Column field="name" header="Name" sortable />
+                        <Column field="createdAt" header="Created Date" sortable body={(rowData) => formatDate(rowData.createdAt)} />
                         <Column field="dosage" header="Dosage" />
-                        <Column field="stock" header="Stock" />
+                        <Column field="stock" header="Stock" sortable />
                         <Column field="category" header="Category" body={rowData => capitalizeFirstLetter(rowData.category)} />
                         <Column field="type" header="Type" body={rowData => capitalizeFirstLetter(rowData.type)} />
                         <Column field="manufacturer" header="Manufacturer" />
                         <Column field="unitPrice" header="Unit Price ₹" sortable />
+                        <Column field="expDate" header="Expiry Date" sortable body={expiryBodyTemplate} />
                         {/* <Column headerStyle={{ width: "5rem", textAlign: "center" }} bodyStyle={{ textAlign: "center", overflow: "visible" }} body={actionBodyTemplate} /> */}
 
                     </DataTable> : <div className='grid grid-cols-4 gap-5'>{
-                        data?.map((appointment) => (<MedCard key={appointment.id} {...appointment} />))
+                        sortedData?.map((med) => (<MedCard key={med.id} {...med} />))
                     }{
-                            data.length === 0 && <div className='col-span-4 text-center text-gray-500'>No Medicines Found</div>
+                            sortedData.length === 0 && <div className='col-span-4 text-center text-gray-500'>No Medicines Found</div>
                         }</div>} </div> :
                     <form onSubmit={form.onSubmit(handleSubmit)} className="grid gap-5">
                         <Fieldset className="grid gap-4 grid-cols-2" legend={<span className="text-lg font-medium text-primary-500">Medicine information</span>} radius="md">

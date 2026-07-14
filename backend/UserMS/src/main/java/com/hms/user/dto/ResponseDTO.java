@@ -8,6 +8,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ResponseDTO {
-    String message;
+    private String message;
+    private Long profileId;
 
+    public ResponseDTO(String message) {
+        this.message = message;
+    }
 }
+

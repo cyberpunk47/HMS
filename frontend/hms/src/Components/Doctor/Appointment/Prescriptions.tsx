@@ -93,7 +93,7 @@ const Prescriptions = ({ appointment }: any) => {
                 rowsPerPageOptions={[10, 25, 50]} dataKey="id"
 
                 filters={filters} filterDisplay="menu" globalFilterFields={['doctorName', 'notes']}
-                emptyMessage="No customers found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+                emptyMessage="No Prescription found." currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
                 <Column field="doctorName" header="Doctor" />
                 <Column field="prescriptionDate" header="Prescription Date" sortable filterPlaceholder="Search by name" body={(rowData) => formatDate(rowData.prescriptionDate)} />
                 <Column field="medicine" header="Medicines" body={(rowData) => rowData.medicines?.length ?? 0} />
