@@ -1,6 +1,7 @@
 import { User, Phone, CalendarClock, Activity, FileText } from 'lucide-react';
 import { formatDateWithtimeUtil } from '../../../Utility/DateUtility';
 import { useNavigate } from 'react-router-dom';
+import { Tooltip } from '@mantine/core';
 
 interface ApCardProps {
   id: number;
@@ -8,7 +9,7 @@ interface ApCardProps {
   patientPhone: string;
   notes: string;
   reason: string;
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
   appointmentTime: string;
 }
 
@@ -32,8 +33,11 @@ const ApCard = ({ id, patientName, patientPhone, notes, reason, status, appointm
       case 'COMPLETED':
         return 'bg-slate-100 text-slate-700 border-slate-200';
       case 'CANCELLED':
-      default:
         return 'bg-red-50 text-red-700 border-red-200';
+      case 'EXPIRED':
+        return 'bg-gray-50 text-gray-500 border-gray-300';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -44,8 +48,11 @@ const ApCard = ({ id, patientName, patientPhone, notes, reason, status, appointm
       case 'COMPLETED':
         return 'bg-slate-500';
       case 'CANCELLED':
-      default:
         return 'bg-red-500';
+      case 'EXPIRED':
+        return 'bg-gray-400';
+      default:
+        return 'bg-slate-500';
     }
   };
 
@@ -69,10 +76,12 @@ const ApCard = ({ id, patientName, patientPhone, notes, reason, status, appointm
             </div>
           </div>
 
-          <span className={`border rounded-full px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 flex-shrink-0 ${getStatusStyle()}`}>
-            <span className={`w-1 h-1 rounded-full ${getStatusDot()}`}></span>
-            {status.charAt(0) + status.slice(1).toLowerCase()}
-          </span>
+          <Tooltip label={status}>
+            <span className={`border rounded-full px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 flex-shrink-0 ${getStatusStyle()}`}>
+              <span className={`w-1 h-1 rounded-full ${getStatusDot()}`}></span>
+              {status.charAt(0) + status.slice(1).toLowerCase()}
+            </span>
+          </Tooltip>
         </div>
 
         {/* Content rows */}

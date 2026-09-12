@@ -133,5 +133,13 @@ const getUniquePatientCountsByDoctor = async (doctorId: any) => {
         .then((response: any) => response.data)
         .catch((error: any) => { throw error; })
 }
+const getUniquePatientDataForEachDoctor = async (doctorId: number) => {
+    return axiosInstance
+        .get(`/appointment/patients/doctor/${doctorId}/dropdown`)
+        .then((response: any) => response.data)
+        .catch((error: any) => {
+            throw error;
+        })
+}
 
-export { scheduleAppointment, cancelAppointment, getAppointment, getAppointmentDetails, getAppointmentsByPatient, getAppointmentsByDoctor, createAppointmentReport, isReportExists, getReportsByPatientId, getPrescriptionsByPatientId, getAllPrescriptions, getMedicinesByPrescriptionId, countAppointmentsByPatient, countAppointmentsByDoctor, countAllAppointments, countReasonsByPatient, countReasonsByDoctor, countAllReasons, getMedicinesConsumedByPatient, getTodaysAppointments ,getPatientIdsByDoctor, getUniquePatientCountsByDoctor }
+export { scheduleAppointment, cancelAppointment, getAppointment, getAppointmentDetails, getAppointmentsByPatient, getAppointmentsByDoctor, createAppointmentReport, isReportExists, getReportsByPatientId, getPrescriptionsByPatientId, getAllPrescriptions, getMedicinesByPrescriptionId, countAppointmentsByPatient, countAppointmentsByDoctor, countAllAppointments, countReasonsByPatient, countReasonsByDoctor, countAllReasons, getMedicinesConsumedByPatient, getTodaysAppointments ,getPatientIdsByDoctor, getUniquePatientCountsByDoctor , getUniquePatientDataForEachDoctor }

@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 
-import com.hms.profile.dto.DoctorDropdown;
+import com.hms.profile.dto.PatientDropdown;
 import com.hms.profile.entity.Patient;
 
 public interface PatientRepository extends CrudRepository<Patient, Long>{
@@ -14,5 +14,5 @@ public interface PatientRepository extends CrudRepository<Patient, Long>{
     Optional<Patient> findByAadharNo(String aadharNo);
     
     @Query("SELECT d.id AS id, d.name AS name FROM Patient d WHERE d.id IN ?1")
-    List<DoctorDropdown> findAllPatientDropdownsByIds(List<Long> ids);
+    List<PatientDropdown> findAllPatientDropdownsByIds(List<Long> ids);
 }

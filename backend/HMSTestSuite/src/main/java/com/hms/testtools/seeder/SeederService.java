@@ -8,6 +8,8 @@ import com.hms.testtools.dto.UserDTO;
 import com.hms.testtools.util.ApiTimer;
 import com.hms.testtools.util.CsvWriter;
 import com.hms.testtools.dto.SeededUser;
+import com.hms.testtools.dto.UserCredentialDTO;
+import com.hms.testtools.util.CredentialWriter;
 import net.datafaker.Faker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,8 @@ public class SeederService {
         System.out.println(">>> Starting Hospital Management System Database Seeder Service...");
         System.out.println(">>> Seeder Start Timestamp: " + java.time.LocalDateTime.now());
 
+        List<UserCredentialDTO> credentialsList = new ArrayList<>();
+
         try {
             // Step 1: Register and login as an Admin to get the token for downstream
             // services
@@ -77,26 +81,33 @@ public class SeederService {
             }
 
             // Step 2: Seed Doctors
-            System.out.println(">>> Step 2: Seeding " + perfProps.getDoctors() + " doctors...");
+            System.out.println(">>> Step 2: Seeding " + perfProps.getDoctors() + " doctors (starting from index " + perfProps.getDoctorStartIndex() + ")...");
             List<Long> doctorProfileIds = new ArrayList<>();
             for (int i = 0; i < perfProps.getDoctors(); i++) {
+                int index = perfProps.getDoctorStartIndex() + i;
                 long start = ApiTimer.start();
                 boolean success = true;
 
                 try {
 
-                    SeededUser seeded = userSeeder.seedUser(Roles.DOCTOR);
+                    SeededUser seeded = userSeeder.seedUser(Roles.DOCTOR, index);
 
                     profileSeeder.seedDoctorProfile(
                             seeded.getUser(),
-                            seeded.getProfileId());
+                            seeded.getProfileId(),
+                            index);
 
                     doctorProfileIds.add(seeded.getProfileId());
+                    credentialsList.add(new UserCredentialDTO(
+                            seeded.getUser().getEmail(),
+                            seeded.getUser().getPassword(),
+                            seeded.getProfileId(),
+                            Roles.DOCTOR.name()));
 
                 } catch (Exception e) {
 
                     success = false;
-                    System.out.println(">>> Failed to seed doctor " + (i + 1));
+                    System.out.println(">>> Failed to seed doctor " + index + ": " + e.getMessage());
 
                 }
 
@@ -110,26 +121,33 @@ public class SeederService {
             System.out.println(">>> Successfully seeded " + doctorProfileIds.size() + " doctors.");
 
             // Step 3: Seed Patients
-            System.out.println(">>> Step 3: Seeding " + perfProps.getPatients() + " patients...");
+            System.out.println(">>> Step 3: Seeding " + perfProps.getPatients() + " patients (starting from index " + perfProps.getPatientStartIndex() + ")...");
             List<Long> patientProfileIds = new ArrayList<>();
             for (int i = 0; i < perfProps.getPatients(); i++) {
+                int index = perfProps.getPatientStartIndex() + i;
                 long start = ApiTimer.start();
                 boolean success = true;
 
                 try {
 
-                    SeededUser seeded = userSeeder.seedUser(Roles.PATIENT);
+                    SeededUser seeded = userSeeder.seedUser(Roles.PATIENT, index);
 
                     profileSeeder.seedPatientProfile(
                             seeded.getUser(),
-                            seeded.getProfileId());
+                            seeded.getProfileId(),
+                            index);
 
                     patientProfileIds.add(seeded.getProfileId());
+                    credentialsList.add(new UserCredentialDTO(
+                            seeded.getUser().getEmail(),
+                            seeded.getUser().getPassword(),
+                            seeded.getProfileId(),
+                            Roles.PATIENT.name()));
 
                 } catch (Exception e) {
 
                     success = false;
-                    System.out.println(">>> Failed to seed patient " + (i + 1));
+                    System.out.println(">>> Failed to seed patient " + index + ": " + e.getMessage());
 
                 }
 
@@ -141,6 +159,9 @@ public class SeederService {
                         success);
             }
             System.out.println(">>> Successfully seeded " + patientProfileIds.size() + " patients.");
+
+            // Export seeded user credentials for k6 load testing
+            CredentialWriter.writeCredentials(perfProps.getCredentialsFile(), credentialsList);
 
             // Step 4: Seed Medicines
             System.out.println(">>> Step 4: Seeding " + perfProps.getMedicines() + " medicines...");

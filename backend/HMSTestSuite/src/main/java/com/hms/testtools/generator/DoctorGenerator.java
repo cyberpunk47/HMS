@@ -13,17 +13,21 @@ public class DoctorGenerator {
     @Autowired
     private Faker faker;
 
-    public DoctorDTO generateDoctorProfile() {
+    public DoctorDTO generateDoctorProfile(int index) {
         DoctorDTO doctor = new DoctorDTO();
         doctor.setDob(LocalDate.ofInstant(faker.date().birthday(25, 60).toInstant(), ZoneId.systemDefault()));
         doctor.setProfilePictureId(faker.number().numberBetween(1L, 100L));
-        doctor.setPhone("9" + faker.number().digits(9));
+        doctor.setPhone(String.format("98%08d", (long) index));
         doctor.setAddress(faker.address().fullAddress());
-        doctor.setLicenseNo("LIC-" + faker.random().hex(8).toUpperCase());
+        doctor.setLicenseNo(String.format("LIC-%06d", index));
         doctor.setGender(faker.options().option("MALE", "FEMALE"));
         doctor.setSpecialization(faker.options().option("Cardiologist", "Neurologist", "Dermatologist", "Pediatrician"));
         doctor.setDepartment(faker.options().option("Cardiology", "Neurology", "Dermatology", "Pediatrics"));
         doctor.setTotalExp(faker.number().numberBetween(2, 35));
         return doctor;
+    }
+
+    public DoctorDTO generateDoctorProfile() {
+        return generateDoctorProfile(faker.number().numberBetween(1, 999999));
     }
 }

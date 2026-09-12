@@ -110,4 +110,9 @@ public class AppointmentAPI {
         return new ResponseEntity<>(appointmentService.getUniquePatientCountsByDoctor(doctorId), HttpStatus.OK);
     }
 
+    @GetMapping("/patients/doctor/{doctorId}/dropdown")
+    public ResponseEntity<List<PatientDTO>> getPatientDropDown(@PathVariable Long doctorId) {
+        return new ResponseEntity<>(appointmentService.getPatientDropDown(doctorId), HttpStatus.OK);
+    }
+    
 }

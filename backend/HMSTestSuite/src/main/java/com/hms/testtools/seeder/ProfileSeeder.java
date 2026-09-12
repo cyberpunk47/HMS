@@ -21,12 +21,28 @@ public class ProfileSeeder {
     @Autowired
     private PatientGenerator patientGenerator;
 
+    public void seedDoctorProfile(UserDTO user, Long profileId, int index) {
+        DoctorDTO doctorDTO = doctorGenerator.generateDoctorProfile(index);
+        doctorDTO.setId(profileId);
+        doctorDTO.setName(user.getName());
+        doctorDTO.setEmail(user.getEmail());
+        profileClient.updateDoctor(doctorDTO);
+    }
+
     public void seedDoctorProfile(UserDTO user, Long profileId) {
         DoctorDTO doctorDTO = doctorGenerator.generateDoctorProfile();
         doctorDTO.setId(profileId);
         doctorDTO.setName(user.getName());
         doctorDTO.setEmail(user.getEmail());
         profileClient.updateDoctor(doctorDTO);
+    }
+
+    public void seedPatientProfile(UserDTO user, Long profileId, int index) {
+        PatientDTO patientDTO = patientGenerator.generatePatientProfile(index);
+        patientDTO.setId(profileId);
+        patientDTO.setName(user.getName());
+        patientDTO.setEmail(user.getEmail());
+        profileClient.updatePatient(patientDTO);
     }
 
     public void seedPatientProfile(UserDTO user, Long profileId) {

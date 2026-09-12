@@ -5,10 +5,11 @@ import { removeUser } from "../../Slices/UserSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, Search, Menu, LogOut } from "lucide-react";
+import { Search, Menu, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getUserProfile } from "../../Service/UserService";
 import useProtectedImage from "../Utilities/Dropzone/useProtectedImage";
+import { NotificationBell } from "../NotificationBell";
 
 interface AppHeaderProps {
   onMobileMenuToggle?: () => void;
@@ -77,14 +78,7 @@ const AppHeader = ({ onMobileMenuToggle, showMobileMenu }: AppHeaderProps) => {
           {jwt ? (
             <>
               {/* Notification bell */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative text-gray-500 hover:text-gray-700"
-              >
-                <Bell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              </Button>
+              <NotificationBell />
 
               {/* User info */}
               <div className="flex items-center gap-2.5">

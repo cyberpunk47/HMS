@@ -3,6 +3,7 @@ package com.hms.appointment.service;
 import com.hms.appointment.clients.ProfileClient;
 import com.hms.appointment.dto.DoctorName;
 import com.hms.appointment.dto.MedicineDTO;
+import com.hms.appointment.dto.PatientName;
 import com.hms.appointment.dto.PrescriptionDTO;
 import com.hms.appointment.dto.PrescriptionDetails;
 import com.hms.appointment.entity.Prescription;
@@ -106,12 +107,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 				.distinct()
 				.toList();
 		List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorIds);
-		List<DoctorName> patientNames = profileClient.getPatientsById(patientIds);
+		List<PatientName> patientNames = profileClient.getPatientsById(patientIds);
 		
 		Map<Long, String> doctorMap = doctorNames.stream()
 				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+				
 		Map<Long, String> patientMap = patientNames.stream()
-				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+				.collect(Collectors.toMap(PatientName::getId, PatientName::getName));
 		
 		prescriptionDetails.forEach(details -> {
             String doctorName = doctorMap.get(details.getDoctorId());

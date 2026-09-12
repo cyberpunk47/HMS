@@ -9,16 +9,30 @@ import Prescriptions from "./Prescriptions";
 
 const AppointmentDetails = () => {
     const { id } = useParams();
-    const [appointment, setAppointment] = useState<any>({})
+    const [appointment, setAppointment] = useState<any>({});
+
     useEffect(() => {
         getAppointmentDetails(id).then((res) => {
-            // console.log("appointment details: ", res)
-            setAppointment(res)
+            setAppointment(res);
         }).catch((err) => {
             console.error("error fetching appointment: ", err);
-        })
-    }, [id])
+        });
+    }, [id]);
 
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'COMPLETED':
+                return 'green';
+            case 'CANCELLED':
+                return 'red';
+            case 'EXPIRED':
+                return 'gray';
+            case 'SCHEDULED':
+                return 'blue';
+            default:
+                return 'blue';
+        }
+    };
 
     return (
         <div>
@@ -28,16 +42,15 @@ const AppointmentDetails = () => {
                 <Text className="text-primary-400 ">Details</Text>
             </Breadcrumbs>
             <div>
-                <Card shadow="sm" padding="lg" radius="md" withBorder >
+                <Card shadow="sm" padding="lg" radius="md" withBorder>
                     <Group justify="space-between" mb="xs">
                         <Title order={2}>{appointment.patientName}</Title>
-                        <Badge color={appointment.status === 'CANCELLED' ? 'red' : 'blue'} variant="light">
+                        <Badge color={getStatusColor(appointment.status)} variant="light">
                             {appointment.status}
                         </Badge>
                     </Group>
 
                     <div className="grid grid-cols-2 gap-5 mb-2">
-
                         <Text size="sm" mb={4}>
                             <strong>Email:</strong> {appointment.patientEmail}
                         </Text>
@@ -60,6 +73,7 @@ const AppointmentDetails = () => {
                         <strong>Notes:</strong> {appointment.notes || 'None'}
                     </Text>
                 </Card>
+
                 <Tabs variant="pills" my={"md"} radius="md" defaultValue="medical">
                     <Tabs.List>
                         <Tabs.Tab value="medical" leftSection={<IconStethoscope size={20} />}>
@@ -74,12 +88,16 @@ const AppointmentDetails = () => {
                     </Tabs.List>
 
                     <Divider my={"md"} />
+                    
                     <Tabs.Panel value="medical">
-                        Gallery tab content
+                        <div className="text-center text-gray-500 py-10">
+                            Medical History will be available soon
+                        </div>
                     </Tabs.Panel>
 
                     <Tabs.Panel value="prescriptions">
-                        <Prescriptions appointment={appointment} />
+                        <Prescriptions appointment={appointment} /> 
+
                     </Tabs.Panel>
 
                     <Tabs.Panel value="reports">
@@ -88,8 +106,7 @@ const AppointmentDetails = () => {
                 </Tabs>
             </div>
         </div>
-    )
-}
-
+    );
+};
 
 export default AppointmentDetails;

@@ -1,0 +1,10 @@
+package com.hms.NotificationMS.event;
+
+public enum EventType {
+
+    APPOINTMENT_CREATED,
+    APPOINTMENT_CANCELLED,
+    APPOINTMENT_COMPLETED,
+    APPOINTMENT_RESCHEDULED,
+    APPOINTMENT_EXPIRED
+}

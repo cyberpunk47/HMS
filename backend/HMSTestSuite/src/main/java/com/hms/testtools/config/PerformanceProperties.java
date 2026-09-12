@@ -15,5 +15,8 @@ public class PerformanceProperties {
     private int inventoryBatches;
     private int admins;
     private int parallelThreads;
+    private int doctorStartIndex = 501;
+    private int patientStartIndex = 501;
+    private String credentialsFile = "credentials.json";
 
 }

@@ -12,14 +12,29 @@ public class UserGenerator {
     @Autowired
     private Faker faker;
 
-    public UserDTO generateUser(Roles role) {
+    public UserDTO generateUser(Roles role, int index) {
         UserDTO user = new UserDTO();
         String name = faker.name().fullName();
         user.setName(name);
-        String emailName = name.toLowerCase().replaceAll("[^a-z0-9]", "");
-        user.setEmail(emailName + "_" + faker.random().hex(4) + "@hms.com");
+
+        String prefix;
+        if (role == Roles.PATIENT) {
+            prefix = "patient";
+        } else if (role == Roles.DOCTOR) {
+            prefix = "doctor";
+        } else if (role == Roles.ADMIN) {
+            prefix = "admin";
+        } else {
+            prefix = "user";
+        }
+
+        user.setEmail(String.format("%s%03d@hms.com", prefix, index));
         user.setPassword("Password@123");
         user.setRole(role);
         return user;
+    }
+
+    public UserDTO generateUser(Roles role) {
+        return generateUser(role, faker.number().numberBetween(1, 999));
     }
 }

@@ -5,8 +5,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.hms.profile.dto.DoctorDropdown;
 import com.hms.profile.dto.PatientDTO;
+import com.hms.profile.dto.PatientDropdown;
 import com.hms.profile.entity.Patient;
 import com.hms.profile.exception.HmsException;
 import com.hms.profile.repository.PatientRepository;
@@ -46,7 +46,7 @@ public class PatientServiceImpl implements PatientService {
     }
 
     @Override
-    public List<DoctorDropdown> getPatientsById(List<Long> ids) throws HmsException {
+    public List<PatientDropdown> getPatientsById(List<Long> ids) throws HmsException {
         return patientRepository.findAllPatientDropdownsByIds(ids);
     }
 

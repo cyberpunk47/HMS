@@ -18,7 +18,11 @@ public class AppointmentEventPayload {
     private Long doctorId;
     private String doctorName;
     private String doctorSpecialization;
-
+    private String doctorEmail;
+    private String doctorPhone;
+    
+    private String patientEmail;
+    private String patientPhone;
     private Long patientId;
     private String patientName;
 

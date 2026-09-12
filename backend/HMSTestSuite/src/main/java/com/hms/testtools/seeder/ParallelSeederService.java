@@ -16,8 +16,10 @@ import com.hms.testtools.auth.TokenManager;
 import com.hms.testtools.config.PerformanceProperties;
 import com.hms.testtools.dto.Roles;
 import com.hms.testtools.dto.SeededUser;
+import com.hms.testtools.dto.UserCredentialDTO;
 import com.hms.testtools.dto.UserDTO;
 import com.hms.testtools.util.ApiTimer;
+import com.hms.testtools.util.CredentialWriter;
 import com.hms.testtools.util.CsvWriter;
 
 import net.datafaker.Faker;
@@ -58,6 +60,7 @@ public class ParallelSeederService {
         System.out.println(">>> Seeder Start Timestamp: " + java.time.LocalDateTime.now());
 
         ExecutorService executor = Executors.newFixedThreadPool(perfProps.getParallelThreads());
+        List<UserCredentialDTO> credentialsList = Collections.synchronizedList(new ArrayList<>());
 
         String token = "";
         try {
@@ -88,11 +91,11 @@ public class ParallelSeederService {
 
         try {
             // Step 2: Seed Doctors in Parallel
-            System.out.println(">>> Step 2: Seeding " + perfProps.getDoctors() + " doctors in parallel...");
+            System.out.println(">>> Step 2: Seeding " + perfProps.getDoctors() + " doctors in parallel (starting from index " + perfProps.getDoctorStartIndex() + ")...");
             List<Long> doctorProfileIds = Collections.synchronizedList(new ArrayList<>());
             List<Future<?>> doctorFutures = new ArrayList<>();
             for (int i = 0; i < perfProps.getDoctors(); i++) {
-                final int index = i + 1;
+                final int index = perfProps.getDoctorStartIndex() + i;
                 doctorFutures.add(
                     executor.submit(() -> {
                         TokenManager.setToken(finalToken);
@@ -100,11 +103,17 @@ public class ParallelSeederService {
                             long start = ApiTimer.start();
                             boolean success = true;
                             try {
-                                SeededUser seeded = userSeeder.seedUser(Roles.DOCTOR);
+                                SeededUser seeded = userSeeder.seedUser(Roles.DOCTOR, index);
                                 profileSeeder.seedDoctorProfile(
                                         seeded.getUser(),
-                                        seeded.getProfileId());
+                                        seeded.getProfileId(),
+                                        index);
                                 doctorProfileIds.add(seeded.getProfileId());
+                                credentialsList.add(new UserCredentialDTO(
+                                        seeded.getUser().getEmail(),
+                                        seeded.getUser().getPassword(),
+                                        seeded.getProfileId(),
+                                        Roles.DOCTOR.name()));
                             } catch (Exception e) {
                                 success = false;
                                 System.out.println(">>> Failed to seed doctor " + index + ": " + e.getMessage());
@@ -128,11 +137,11 @@ public class ParallelSeederService {
             System.out.println(">>> Successfully seeded " + doctorProfileIds.size() + " doctors.");
 
             // Step 3: Seed Patients in Parallel
-            System.out.println(">>> Step 3: Seeding " + perfProps.getPatients() + " patients in parallel...");
+            System.out.println(">>> Step 3: Seeding " + perfProps.getPatients() + " patients in parallel (starting from index " + perfProps.getPatientStartIndex() + ")...");
             List<Long> patientProfileIds = Collections.synchronizedList(new ArrayList<>());
             List<Future<?>> patientFutures = new ArrayList<>();
             for (int i = 0; i < perfProps.getPatients(); i++) {
-                final int index = i + 1;
+                final int index = perfProps.getPatientStartIndex() + i;
                 patientFutures.add(
                     executor.submit(() -> {
                         TokenManager.setToken(finalToken);
@@ -140,11 +149,17 @@ public class ParallelSeederService {
                             long start = ApiTimer.start();
                             boolean success = true;
                             try {
-                                SeededUser seeded = userSeeder.seedUser(Roles.PATIENT);
+                                SeededUser seeded = userSeeder.seedUser(Roles.PATIENT, index);
                                 profileSeeder.seedPatientProfile(
                                         seeded.getUser(),
-                                        seeded.getProfileId());
+                                        seeded.getProfileId(),
+                                        index);
                                 patientProfileIds.add(seeded.getProfileId());
+                                credentialsList.add(new UserCredentialDTO(
+                                        seeded.getUser().getEmail(),
+                                        seeded.getUser().getPassword(),
+                                        seeded.getProfileId(),
+                                        Roles.PATIENT.name()));
                             } catch (Exception e) {
                                 success = false;
                                 System.out.println(">>> Failed to seed patient " + index + ": " + e.getMessage());
@@ -166,6 +181,9 @@ public class ParallelSeederService {
                 }
             }
             System.out.println(">>> Successfully seeded " + patientProfileIds.size() + " patients.");
+
+            // Export seeded user credentials for k6 load testing
+            CredentialWriter.writeCredentials(perfProps.getCredentialsFile(), credentialsList);
 
             // Step 4: Seed Medicines in Parallel
             System.out.println(">>> Step 4: Seeding " + perfProps.getMedicines() + " medicines in parallel...");

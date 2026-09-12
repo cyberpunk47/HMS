@@ -26,4 +26,6 @@ const getPatientsDetailsByIds = async (ids: number[]) => {
 }
 
 
-export { getPatient, updatePatient, getAllPatients , getPatientsDetailsByIds}
+
+
+export { getPatient, updatePatient, getAllPatients , getPatientsDetailsByIds }

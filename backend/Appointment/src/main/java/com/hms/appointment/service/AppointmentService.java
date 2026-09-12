@@ -3,6 +3,8 @@ package com.hms.appointment.service;
 import com.hms.appointment.dto.AppointmentDTO;
 import com.hms.appointment.dto.AppointmentDetails;
 import com.hms.appointment.dto.MonthlyVisitDTO;
+import com.hms.appointment.dto.PatientDTO;
+import com.hms.appointment.dto.PatientDropDownDTO;
 import com.hms.appointment.dto.ReasonCountDTO;
 import com.hms.appointment.exception.HmsException;
 
@@ -45,5 +47,7 @@ public interface AppointmentService {
     List<Long> getPatientIdsByDoctorId(Long doctorId);
 
     List<MonthlyVisitDTO> getUniquePatientCountsByDoctor(Long doctorId);
+
+    List<PatientDTO> getPatientDropDown(Long doctorId);
 
 }

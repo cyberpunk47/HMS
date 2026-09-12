@@ -18,6 +18,12 @@ public class UserSeeder {
     @Autowired
     private UserGenerator userGenerator;
 
+    public SeededUser seedUser(Roles role, int index) {
+        UserDTO user = userGenerator.generateUser(role, index);
+        ResponseDTO response = authService.register(user);
+        return new SeededUser(user, response.getProfileId());
+    }
+
     public SeededUser seedUser(Roles role) {
         UserDTO user = userGenerator.generateUser(role);
         ResponseDTO response = authService.register(user);

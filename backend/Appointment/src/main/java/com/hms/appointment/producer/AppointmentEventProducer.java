@@ -113,17 +113,29 @@ public class AppointmentEventProducer {
 
         payload.setAppointmentId(appointment.getId());
 
-        payload.setDoctorId(doctor.getId());
-        payload.setDoctorName(doctor.getName());
-        payload.setDoctorSpecialization(doctor.getSpecialization());
+        if (doctor != null) {
+            payload.setDoctorId(doctor.getId());
+            payload.setDoctorName(doctor.getName());
+            payload.setDoctorSpecialization(doctor.getSpecialization());
+            payload.setDoctorEmail(doctor.getEmail());
+            payload.setDoctorPhone(doctor.getPhone());
+        } else {
+            payload.setDoctorId(appointment.getDoctorId());
+            payload.setDoctorName("Unknown Doctor");
+        }
 
-        payload.setPatientId(patient.getId());
-        payload.setPatientName(patient.getName());
+        if (patient != null) {
+            payload.setPatientId(patient.getId());
+            payload.setPatientName(patient.getName());
+            payload.setPatientEmail(patient.getEmail());
+            payload.setPatientPhone(patient.getPhone());
+        } else {
+            payload.setPatientId(appointment.getPatientId());
+            payload.setPatientName("Unknown Patient");
+        }
 
         payload.setAppointmentDateTime(appointment.getAppointmentTime());
-
         payload.setAppointmentStatus(appointment.getStatus());
-
         payload.setAppointmentReason(appointment.getReason());
 
         return payload;
