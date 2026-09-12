@@ -314,7 +314,7 @@ const Appointment = () => {
                         data={doctors}
                         label="Doctor"
                         placeholder="Select Doctor"
-                        onChange={(value) => {
+                        onChange={(value : any) => {
                             form.setFieldValue("doctorId", value);
                             form.setFieldValue("patientId", "");
                         }}
