@@ -3,4 +3,4 @@
 .idea
 .github
 .dist
-.env
+.envk6/tokens.json
