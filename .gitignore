@@ -4,3 +4,13 @@
 .github
 .dist
 .envk6/tokens.json
+
+# Environment / secrets
+.env
+**/.env
+
+# k6 generated credentials
+k6/tokens.json
+
+# SSH keys
+*.pem
