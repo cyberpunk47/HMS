@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 const axiosInstance = axios.create({
-    baseURL: "http://localhost:9000"
+    baseURL: import.meta.env.VITE_APP_URL || "http://localhost:9000"
 })
 
 axiosInstance.interceptors.request.use(

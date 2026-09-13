@@ -17,7 +17,7 @@ import { IconBell, IconCalendar, IconCalendarOff, IconCalendarEvent, IconCheck, 
 import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { getPatientNotification, getDoctorNotification } from '../Service/NotificationService';
-import { formatDateWithtimeUtil } from '@/Utility/DateUtility';
+import { formatDateWithtimeUtil, parseDateAsUTC } from '@/Utility/DateUtility';
 
 // Matches the backend NotificationDTO exactly
 export interface NotificationDTO {
@@ -47,35 +47,49 @@ const getNotificationIcon = (title: string) => {
 
 // Relative time formatting (short)
 const getRelativeTime = (dateStr: string) => {
-  if (!dateStr) return '';
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+    if (!dateStr) return '';
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+    const date = parseDateAsUTC(dateStr);
+
+    if (!date) return '';
+
+    const now = new Date();
+
+    const diffMs = now.getTime() - date.getTime();
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 };
 
-// Full date and time formatting for expanded view
 const formatNotificationDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+    if (!dateStr) return '';
+
+    const date = parseDateAsUTC(dateStr);
+
+    if (!date) return '';
+
+    return date.toLocaleString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
 };
 const formatMessageWithDate = (message: string) => {
   if (!message) return message;
@@ -194,6 +208,7 @@ export function NotificationBell() {
           {!isLoading &&
             !isError &&
             notifications.map((notification) => {
+
               const { icon: Icon, color } = getNotificationIcon(notification.title);
               const isExpanded = expandedId === notification.id;
               return (

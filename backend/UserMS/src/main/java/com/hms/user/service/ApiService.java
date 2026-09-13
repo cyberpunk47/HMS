@@ -18,7 +18,7 @@ public class ApiService {
         if(userDTO.getRole().equals(Roles.DOCTOR)) {
             return webClient.build()
                     .post()
-                    .uri("http://localhost:9100/profile/doctor/add")
+                    .uri("http://ProfileMS/profile/doctor/add")
                     .bodyValue(userDTO)
                     .retrieve()
                     .bodyToMono(Long.class);
@@ -26,7 +26,7 @@ public class ApiService {
         else if(userDTO.getRole().equals(Roles.PATIENT)) {
             return webClient.build()
                     .post()
-                    .uri("http://localhost:9100/profile/patient/add")
+                    .uri("http://ProfileMS/profile/patient/add")
                     .bodyValue(userDTO)
                     .retrieve()
                     .bodyToMono(Long.class);

@@ -1,0 +1,202 @@
+services:
+
+  # ============================================
+  #  INFRASTRUCTURE
+  # ============================================
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: hms-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: postgres
+    volumes:
+      - hms-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - hms-network
+
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: hms-kafka
+
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      CLUSTER_ID: "hms-kafka-cluster-001"
+
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - hms-network
+
+  # ============================================
+  #  EUREKA SERVER (must start first)
+  # ============================================
+
+  eureka-server:
+    build:
+      context: ./backend/Eureka-Server
+      dockerfile: Dockerfile
+    container_name: hms-eureka-server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - hms-network
+
+  # ============================================
+  #  API GATEWAY
+  # ============================================
+
+  gateway:
+    build:
+      context: ./backend/GatewayMS
+      dockerfile: Dockerfile
+    container_name: hms-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    ports:
+      - "9000:9000"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+  # ============================================
+  #  BUSINESS SERVICES
+  # ============================================
+
+  user-ms:
+    build:
+      context: ./backend/UserMS
+      dockerfile: Dockerfile
+    container_name: hms-user-ms
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+  profile-ms:
+    build:
+      context: ./backend/ProfileMS
+      dockerfile: Dockerfile
+    container_name: hms-profile-ms
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9100:9100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+  appointment-ms:
+    build:
+      context: ./backend/Appointment
+      dockerfile: Dockerfile
+    container_name: hms-appointment-ms
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9200:9200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+  pharmacy-ms:
+    build:
+      context: ./backend/PharmacyMS
+      dockerfile: Dockerfile
+    container_name: hms-pharmacy-ms
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9300:9300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+  notification-ms:
+    build:
+      context: ./backend/NotificationMS
+      dockerfile: Dockerfile
+    container_name: hms-notification-ms
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9101:9101"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+# ============================================
+#  VOLUMES & NETWORKS
+# ============================================
+
+volumes:
+  hms-postgres-data:
+    driver: local
+
+networks:
+  hms-network:
+    driver: bridge

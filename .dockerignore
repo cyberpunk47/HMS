@@ -1,0 +1,13 @@
+**/target/
+**/.git
+**/.gitignore
+**/.idea
+**/.vscode
+**/*.iml
+**/node_modules/
+**/dist/
+**/.env
+**/docker-compose*.yml
+**/Dockerfile
+**/*.md
+**/TestResults.txt
