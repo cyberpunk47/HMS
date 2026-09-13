@@ -1,9 +1,9 @@
-.mvnw
-.vscode
-.idea
-.github
-.dist
-.envk6/tokens.json
+*.mvnw
+*.vscode
+*.idea
+*.github
+*.dist
+*.envk6/tokens.json
 
 # Environment / secrets
 .env
@@ -14,3 +14,11 @@ k6/tokens.json
 
 # SSH keys
 *.pem
+
+*.tfstate
+*.tfstate.*
+.terraform/
+.vercel.json
+
+# Terraform - keep local only
+terraform/
