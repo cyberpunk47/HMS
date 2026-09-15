@@ -1,9 +1,15 @@
+# IDE / editor
 *.mvnw
 *.vscode
 *.idea
 *.github
+
+# Build artifacts
 *.dist
-*.envk6/tokens.json
+**/target/
+**/bin/
+**/build/
+**/node_modules/
 
 # Environment / secrets
 .env
@@ -15,10 +21,10 @@ k6/tokens.json
 # SSH keys
 *.pem
 
+# Terraform generated files/state
+.terraform/
 *.tfstate
 *.tfstate.*
-.terraform/
-.vercel.json
 
-# Terraform - keep local only
-terraform/
+# Vercel
+.vercel.json

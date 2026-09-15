@@ -16,7 +16,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/appointment/prescription")
-@CrossOrigin
 @Validated
 @RequiredArgsConstructor
 public class PrescriptionAPI {

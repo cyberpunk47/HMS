@@ -3,6 +3,7 @@ package com.hms.gateway.filter;
 
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
@@ -21,6 +22,9 @@ public class TokenFilter extends AbstractGatewayFilterFactory<TokenFilter.Config
     public GatewayFilter apply(Config config){
         return (exchange, chain) ->{
             String path = exchange.getRequest().getPath().toString();
+            if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+    return chain.filter(exchange);
+}
             if(path.equals("/user/login") || path.equals("/user/register") || path.equals("/users/login") || path.equals("/users/register")){
 
                 return chain.filter(exchange.mutate().request(r->r.header("X-Secret-Key", "SECRET")).build());
