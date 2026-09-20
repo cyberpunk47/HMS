@@ -91,6 +91,11 @@ private ProfileClient profileClient;
     }
 
     @Override
+    public boolean adminExists() {
+        return userRepository.countByRole(Roles.ADMIN) > 0;
+    }
+
+    @Override
     public com.hms.user.dto.RegistrationCountsDTO getRegistrationCounts() throws HmsException {
         long patientCount = userRepository.countByRole(Roles.PATIENT);
         long doctorCount = userRepository.countByRole(Roles.DOCTOR);

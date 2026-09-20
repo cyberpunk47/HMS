@@ -1,0 +1,22 @@
+# AWS override — same services, same images, same networking; only host exposure changes.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
+#
+# Internet -> Gateway (9000) only. Eureka and the business services stay reachable inside the
+# Docker network (service discovery is unchanged) but are no longer published on the host, so
+# the X-Secret-Key protected service ports cannot be reached even if a Security Group rule is
+# opened by mistake. PostgreSQL and Kafka were never published and stay that way.
+# Requires Docker Compose v2.24+ (for `!reset`). Check with: docker compose version
+services:
+  eureka-server:
+    ports: !reset []
+  user-ms:
+    ports: !reset []
+  profile-ms:
+    ports: !reset []
+  appointment-ms:
+    ports: !reset []
+  pharmacy-ms:
+    ports: !reset []
+  notification-ms:
+    ports: !reset []

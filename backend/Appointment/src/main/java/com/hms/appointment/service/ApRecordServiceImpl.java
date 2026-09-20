@@ -2,15 +2,16 @@ package com.hms.appointment.service;
 
 import com.hms.appointment.clients.ProfileClient;
 import com.hms.appointment.dto.ApRecordDTO;
+import com.hms.appointment.dto.AppointmentDTO;
 import com.hms.appointment.dto.DoctorName;
 import com.hms.appointment.dto.RecordDetails;
 import com.hms.appointment.entity.ApRecord;
 import com.hms.appointment.exception.HmsException;
 import com.hms.appointment.repository.ApRecordRepository;
 import com.hms.appointment.utility.StringListConverter;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,7 +21,10 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+// Spring @Transactional with rollbackFor: HmsException is a checked exception, and the previous
+// jakarta @Transactional did NOT roll back on it. A failed "complete appointment" step used to
+// leave an orphan report saved while the appointment stayed SCHEDULED.
+@Transactional(rollbackFor = Exception.class)
 public class ApRecordServiceImpl implements ApRecordService {
 
     private final ApRecordRepository apRecordRepository;
@@ -30,21 +34,31 @@ public class ApRecordServiceImpl implements ApRecordService {
 
     @Override
     public Long createApRecord(ApRecordDTO request) throws HmsException {
+        if (request.getAppointmentId() == null) {
+            throw new HmsException("APPOINTMENT_NOT_FOUND");
+        }
         Optional<ApRecord> existingRecord = apRecordRepository.findByAppointment_Id(request.getAppointmentId());
 
         if (existingRecord.isPresent()) {
             throw new HmsException("APPOINTMENT_RECORD_ALREADY_EXISTS");
         }
 
+        // 1. Cross-wire: Mark the appointment as completed (validates status/time first).
+        AppointmentDTO appointment = appointmentService.completeAppointment(request.getAppointmentId());
+
+        // The report always belongs to the appointment's real patient and doctor.
+        request.setPatientId(appointment.getPatientId());
+        request.setDoctorId(appointment.getDoctorId());
+        request.setId(null);
         request.setCreatedAt(LocalDateTime.now());
         Long id = apRecordRepository.save(request.toEntity()).getId();
 
-        // 1. Cross-wire: Mark the appointment as completed
-        appointmentService.completeAppointment(request.getAppointmentId());
-
         // 2. Save the prescription (Only once!)
         if (request.getPrescription() != null) {
+            request.getPrescription().setId(null);
             request.getPrescription().setAppointmentId(request.getAppointmentId());
+            request.getPrescription().setPatientId(appointment.getPatientId());
+            request.getPrescription().setDoctorId(appointment.getDoctorId());
             prescriptionService.savePrescription(request.getPrescription());
         }
 
@@ -91,11 +105,14 @@ public class ApRecordServiceImpl implements ApRecordService {
                 .toList();
         List<Long> doctorsIds = recordDetails.stream()
                 .map(RecordDetails::getDoctorId)
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
-        List<DoctorName> doctors = profileClient.getDoctorsById(doctorsIds);
-        Map<Long, String> doctorMap = doctors.stream()
-                .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+        // Bug fix: with zero records the empty "ids" list made the Feign call fail (Feign drops the
+        // empty query param, ProfileMS rejects the request) and the whole Report tab returned 500.
+        Map<Long, String> doctorMap = doctorsIds.isEmpty() ? Map.of()
+                : profileClient.getDoctorsById(doctorsIds).stream()
+                        .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName, (a, b) -> a));
         recordDetails.forEach(record -> {
             String doctorName = doctorMap.get(record.getDoctorId());
             if (doctorName != null) {

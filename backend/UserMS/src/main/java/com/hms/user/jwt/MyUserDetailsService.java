@@ -25,9 +25,11 @@ public class MyUserDetailsService implements UserDetailsService{
             UserDTO dto = userService.getUser(email);
             return new CustomUserDetails(dto.getId(), dto.getEmail(), dto.getPassword(), dto.getRole(), dto.getName(), dto.getEmail(),dto.getProfileId(), null);
         }catch(HmsException e){
-            e.printStackTrace();
+            // Contract of UserDetailsService: throw instead of returning null. Spring converts this to
+            // BadCredentialsException, so /login still answers INVALID_CREDENTIALS (no behaviour change),
+            // without printing a stack trace for every unknown email.
+            throw new UsernameNotFoundException("USER_NOT_FOUND");
         }
-        return null;
     }
     
 }

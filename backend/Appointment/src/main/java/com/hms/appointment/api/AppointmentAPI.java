@@ -1,16 +1,21 @@
 package com.hms.appointment.api;
 
 import com.hms.appointment.dto.*;
+import com.hms.appointment.exception.ForbiddenException;
 import com.hms.appointment.exception.HmsException;
 import com.hms.appointment.service.AppointmentService;
 import com.hms.appointment.service.PrescriptionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/appointment")
@@ -23,8 +28,16 @@ public class AppointmentAPI {
     private PrescriptionService prescriptionService;
 
     @PostMapping("/schedule")
-    public ResponseEntity<Long> scheduleAppointment(@RequestBody AppointmentDTO appointmentDTO) throws HmsException {
-        System.out.println("----> " + appointmentDTO.toString());
+    public ResponseEntity<Long> scheduleAppointment(@RequestBody AppointmentDTO appointmentDTO,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException {
+        // Identity headers are set by the Gateway from the verified JWT (clients cannot forge them).
+        if ("PATIENT".equals(role) && !Objects.equals(appointmentDTO.getPatientId(), profileId)) {
+            throw new ForbiddenException("Patients can only book appointments for themselves.");
+        }
+        if ("DOCTOR".equals(role) && !Objects.equals(appointmentDTO.getDoctorId(), profileId)) {
+            throw new ForbiddenException("Doctors can only book appointments in their own schedule.");
+        }
         return new ResponseEntity<>(appointmentService.scheduleAppointment(appointmentDTO), HttpStatus.CREATED);
     }
 
@@ -95,8 +108,15 @@ public class AppointmentAPI {
     }
 
     @GetMapping("/today")
-    public ResponseEntity<List<AppointmentDetails>> getTodayAppointment() throws HmsException {
-        return new ResponseEntity<>(appointmentService.getTodaysAppointments(), HttpStatus.OK);
+    public ResponseEntity<List<AppointmentDetails>> getTodayAppointment(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException {
+        List<AppointmentDetails> today = appointmentService.getTodaysAppointments();
+        if ("DOCTOR".equals(role)) {
+            // a doctor sees only their own appointments of the day (admin sees all)
+            today = today.stream().filter(a -> Objects.equals(a.getDoctorId(), profileId)).toList();
+        }
+        return new ResponseEntity<>(today, HttpStatus.OK);
     }
 
     @GetMapping("/patients/doctor/{doctorId}")
@@ -113,5 +133,35 @@ public class AppointmentAPI {
     public ResponseEntity<List<PatientDTO>> getPatientDropDown(@PathVariable Long doctorId) {
         return new ResponseEntity<>(appointmentService.getPatientDropDown(doctorId), HttpStatus.OK);
     }
-    
+
+    // ---------------------------------------------------------------------
+    // Admin: every appointment in HMS (paginated, optional filters).
+    // GET /appointment/all?page=0&size=20&status=SCHEDULED&from=2026-09-01T00:00:00&to=...&doctorId=&patientId=&sort=asc
+    // ---------------------------------------------------------------------
+    @GetMapping("/all")
+    public ResponseEntity<AppointmentPage<AdminAppointmentDetails>> getAllAppointments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Status status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Long doctorId,
+            @RequestParam(required = false) Long patientId,
+            @RequestParam(defaultValue = "desc") String sort) {
+        return new ResponseEntity<>(appointmentService.getAllAppointments(page, size, status, from, to, doctorId,
+                patientId, "asc".equalsIgnoreCase(sort)), HttpStatus.OK);
+    }
+
+    @GetMapping("/all/status-counts")
+    public ResponseEntity<List<StatusCountDTO>> getStatusCounts() {
+        return new ResponseEntity<>(appointmentService.getStatusCounts(), HttpStatus.OK);
+    }
+
+    // Slot picker: active (SCHEDULED/COMPLETED) appointment times of a doctor around a date.
+    // GET /appointment/doctor/{doctorId}/booked-slots?date=2026-09-20
+    @GetMapping("/doctor/{doctorId}/booked-slots")
+    public ResponseEntity<List<LocalDateTime>> getBookedSlots(@PathVariable Long doctorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return new ResponseEntity<>(appointmentService.getBookedTimes(doctorId, date), HttpStatus.OK);
+    }
 }

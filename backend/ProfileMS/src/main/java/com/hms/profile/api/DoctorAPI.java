@@ -8,6 +8,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.hms.profile.dto.DoctorDTO;
+import com.hms.profile.exception.ForbiddenException;
 import com.hms.profile.exception.HmsException;
 import com.hms.profile.service.DoctorService;
 
@@ -37,7 +38,13 @@ public class DoctorAPI {
     }
 
     @PutMapping("/update")
-    public ResponseEntity<DoctorDTO> updateDoctor(@RequestBody DoctorDTO doctorDTO) throws HmsException {
+    public ResponseEntity<DoctorDTO> updateDoctor(@RequestBody DoctorDTO doctorDTO,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException {
+        // Only admins or the owner of the profile may change it (headers set by the Gateway from the JWT).
+        if ("DOCTOR".equals(role) && !java.util.Objects.equals(doctorDTO.getId(), profileId)) {
+            throw new ForbiddenException("Doctors can only update their own profile.");
+        }
         return new ResponseEntity<>(doctorService.updateDoctor(doctorDTO), HttpStatus.OK);
     }
 
@@ -59,5 +66,11 @@ public class DoctorAPI {
     @GetMapping("/getDoctorsById")
     public ResponseEntity<List<DoctorDropdown>> getDoctorsById(@RequestParam List<Long> ids) throws HmsException{
         return new ResponseEntity<>(doctorService.getDoctorsById(ids), HttpStatus.OK);
+    }
+
+    // Full doctor details for a batch of ids (mirrors /profile/patient/getPatientsDetailsByIds).
+    @GetMapping("/getDoctorsDetailsByIds")
+    public ResponseEntity<List<DoctorDTO>> getDoctorsDetailsByIds(@RequestParam List<Long> ids) throws HmsException {
+        return new ResponseEntity<>(doctorService.getDoctorsDetailsByIds(ids), HttpStatus.OK);
     }
 }

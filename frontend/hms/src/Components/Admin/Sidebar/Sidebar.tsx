@@ -14,6 +14,9 @@ const links = [
         name: "Doctors", url: "/admin/doctors", icon: <IconCalendarCheck stroke={1.5} />
     },
     {
+        name: "Appointments", url: "/admin/appointments", icon: <IconCalendarCheck stroke={1.5} />
+    },
+    {
         name: "Medicine", url: "/admin/medicine", icon: <IconVaccine stroke={1.5} />
     },
     {

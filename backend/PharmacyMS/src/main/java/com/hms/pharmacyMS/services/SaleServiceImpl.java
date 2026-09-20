@@ -33,6 +33,13 @@ public class SaleServiceImpl implements SaleService{
         if(dto.getPrescriptionId()!= null && saleRepository.existsByPrescriptionId(dto.getPrescriptionId())){
             throw new HmsException("SALES_ALREADY_EXISTS");
         }
+        if(dto.getSaleItems() == null || dto.getSaleItems().isEmpty()){
+            throw new HmsException("SALE_ITEMS_REQUIRED");
+        }
+        // Process items in a fixed medicine order so concurrent multi-item sales always take the
+        // stock row locks in the same order (no lock-order deadlocks).
+        dto.getSaleItems().sort(java.util.Comparator.comparing(SaleItemDTO::getMedicineId,
+                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
         // We are going to create sale and sale items in the same transaction
         for(SaleItemDTO saleItemDTO : dto.getSaleItems()){
             saleItemDTO.setBatchNo(medicineInventoryService.sellStock(saleItemDTO.getMedicineId(), saleItemDTO.getQuantity()));

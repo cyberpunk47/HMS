@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.hms.appointment.exception.ForbiddenException;
 import com.hms.appointment.exception.HmsException;
 
 import jakarta.validation.ConstraintViolation;
@@ -29,6 +30,19 @@ public class ExceptionControllerAdvice {
     public ResponseEntity<ErrorInfo> exceptionHandler(Exception e){
         ErrorInfo error = new ErrorInfo("Some error occurred", HttpStatus.INTERNAL_SERVER_ERROR.value(), LocalDateTime.now());
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Unknown URL (e.g. a client calling an endpoint this build does not have): 404, not 500.
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorInfo> notFoundHandler(org.springframework.web.servlet.resource.NoResourceFoundException e){
+        ErrorInfo error = new ErrorInfo("No endpoint " + e.getResourcePath(), HttpStatus.NOT_FOUND.value(), LocalDateTime.now());
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorInfo> forbiddenHandler(ForbiddenException e){
+        ErrorInfo error = new ErrorInfo(e.getMessage(), HttpStatus.FORBIDDEN.value(), LocalDateTime.now());
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(HmsException.class)

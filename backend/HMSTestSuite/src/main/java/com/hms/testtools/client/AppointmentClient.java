@@ -6,7 +6,6 @@ import com.hms.testtools.dto.AppointmentDTO;
 import com.hms.testtools.dto.AppointmentDetails;
 import com.hms.testtools.dto.ApRecordDTO;
 import com.hms.testtools.dto.PrescriptionDTO;
-import com.hms.testtools.dto.PrescriptionDetails;
 import java.util.List;
 
 @FeignClient(

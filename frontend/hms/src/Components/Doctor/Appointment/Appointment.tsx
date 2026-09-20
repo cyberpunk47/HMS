@@ -8,7 +8,7 @@ import { TextInput } from '@mantine/core';
 import { IconEdit, IconEye, IconLayoutGrid, IconPlus, IconSearch, IconTable, IconTrash } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
 import { getDoctorDropdown } from '../../../Service/DoctorProfileService';
-import { DateTimePicker } from '@mantine/dates';
+import SlotPicker from '../../Utilities/SlotPicker/SlotPicker';
 import { useForm } from '@mantine/form';
 import { appointmentReasons } from '../../../data/DropdownData';
 import { useSelector } from 'react-redux';
@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ApCard from './ApCard';
 
 const Appointment = () => {
@@ -32,6 +32,8 @@ const Appointment = () => {
     const [tab, setTab] = useState<string>("Today");
     const [doctors, setDoctors] = useState<any[]>([]);
     const user = useSelector((state: any) => state.user);
+    const queryClient = useQueryClient();
+    const [appointmentDate, setAppointmentDate] = useState<string | null>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [filters, setFilters] = useState<DataTableFilterMeta>({
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -87,16 +89,17 @@ const Appointment = () => {
 
     const form = useForm({
         initialValues: {
-            doctorId: "",
+            // Doctors book only in their own schedule (enforced by the backend as well).
+            doctorId: user?.profileId ? String(user.profileId) : "",
             patientId: "",
-            appointmentTime: new Date(),
+            appointmentTime: "",
             reason: "",
             notes: ""
         },
         validate: {
             doctorId: (value) => !value ? "Doctor is required" : undefined,
             patientId: (value) => !value ? "Patient is required" : undefined,
-            appointmentTime: (value) => !value ? "Appointment time is required" : undefined,
+            appointmentTime: (value) => !value ? "Please pick a free time slot" : undefined,
             reason: (value) => !value ? "Reason for appointment is required" : undefined,
         },
     });
@@ -198,11 +201,13 @@ const Appointment = () => {
         scheduleAppointment(formattedValues).then(() => {
             close();
             form.reset();
+            setAppointmentDate(null);
             fetchData();
             successNotification("Appointment scheduled successfully");
         }).catch((error) => {
             errorNotification(error.response?.data?.errorMessage || "Failed to schedule appointment");
         }).finally(() => {
+            queryClient.invalidateQueries({ queryKey: ["bookedSlots"] });
             setLoading(false);
         });
     };
@@ -302,6 +307,7 @@ const Appointment = () => {
                 onClose={() => {
                     close();
                     form.reset();
+                    setAppointmentDate(null);
                 }}
                 title={<div className='text-xl font-semibold text-primary-700'>Schedule Appointment</div>}
                 centered
@@ -313,10 +319,12 @@ const Appointment = () => {
                         withAsterisk
                         data={doctors}
                         label="Doctor"
+                        disabled
                         placeholder="Select Doctor"
                         onChange={(value : any) => {
                             form.setFieldValue("doctorId", value);
                             form.setFieldValue("patientId", "");
+                            form.setFieldValue("appointmentTime", "");
                         }}
                     />
 
@@ -332,12 +340,13 @@ const Appointment = () => {
                         rightSection={patientsLoading ? <Loader size="xs" /> : null}
                     />
 
-                    <DateTimePicker
-                        minDate={new Date()}
-                        {...form.getInputProps("appointmentTime")}
-                        withAsterisk
-                        label="Appointment Time"
-                        placeholder="Pick date and time"
+                    <SlotPicker
+                        doctorId={form.values.doctorId}
+                        date={appointmentDate}
+                        onDateChange={setAppointmentDate}
+                        value={form.values.appointmentTime}
+                        onChange={(v) => form.setFieldValue("appointmentTime", v)}
+                        error={form.errors.appointmentTime}
                     />
 
                     <Select

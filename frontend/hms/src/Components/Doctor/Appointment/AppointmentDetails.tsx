@@ -6,17 +6,22 @@ import { formatDateWithtime } from "../../../Utility/DateUtility";
 import { IconClipboardHeart, IconStethoscope, IconVaccine } from "@tabler/icons-react";
 import ApReport from "./ApReport";
 import Prescriptions from "./Prescriptions";
+import MedicalHistory from "./MedicalHistory";
 
 const AppointmentDetails = () => {
     const { id } = useParams();
     const [appointment, setAppointment] = useState<any>({});
 
-    useEffect(() => {
+    const loadAppointment = () => {
         getAppointmentDetails(id).then((res) => {
             setAppointment(res);
         }).catch((err) => {
             console.error("error fetching appointment: ", err);
         });
+    };
+
+    useEffect(() => {
+        loadAppointment();
     }, [id]);
 
     const getStatusColor = (status: string) => {
@@ -90,9 +95,7 @@ const AppointmentDetails = () => {
                     <Divider my={"md"} />
                     
                     <Tabs.Panel value="medical">
-                        <div className="text-center text-gray-500 py-10">
-                            Medical History will be available soon
-                        </div>
+                        <MedicalHistory appointment={appointment} />
                     </Tabs.Panel>
 
                     <Tabs.Panel value="prescriptions">
@@ -101,7 +104,7 @@ const AppointmentDetails = () => {
                     </Tabs.Panel>
 
                     <Tabs.Panel value="reports">
-                        <ApReport appointment={appointment} />
+                        <ApReport appointment={appointment} onReportCreated={loadAppointment} />
                     </Tabs.Panel>
                 </Tabs>
             </div>

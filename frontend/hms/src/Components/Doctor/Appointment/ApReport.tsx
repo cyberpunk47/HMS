@@ -1,8 +1,11 @@
-import { ActionIcon, Button, Fieldset, Group, MultiSelect, NumberInput, SegmentedControl, Select, Textarea, TextInput, type SelectProps } from "@mantine/core";
+import { ActionIcon, Badge, Button, Divider, Fieldset, Group, Loader, Modal, MultiSelect, NumberInput, SegmentedControl, Select, SimpleGrid, Text, Textarea, TextInput, type SelectProps } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
+import dayjs from "dayjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { dosageFrequencies, medicalTests, medicineTypes, symptoms } from "../../../data/DropdownData";
-import { IconCheck, IconLayoutGrid, IconSearch, IconTable, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconEye, IconLayoutGrid, IconSearch, IconTable, IconTrash } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
-import { createAppointmentReport, getReportsByPatientId, isReportExists } from "../../../Service/AppointmentService";
+import { createAppointmentReport, getReportDetailsByAppointmentId, getReportsByPatientId, isReportExists } from "../../../Service/AppointmentService";
 import { errorNotification, successNotification } from "../../../Utility/NotificationUtil";
 import { useEffect, useState } from "react";
 import { DataTable, type DataTableFilterMeta } from "primereact/datatable";
@@ -25,7 +28,23 @@ type Medicine = {
     prescriptionId?: number
 }
 
-const ApReport = ({ appointment }: any) => {
+const ApReport = ({ appointment, onReportCreated }: any) => {
+    const queryClient = useQueryClient();
+    // Full report + prescription shown in a modal (the table only has summary fields).
+    const [viewing, setViewing] = useState<any>(null);
+    const [viewDetails, setViewDetails] = useState<any>(null);
+    const [viewLoading, setViewLoading] = useState(false);
+
+    const openReport = (report: any) => {
+        setViewing(report);
+        setViewDetails(null);
+        if (!report?.appointmentId) return;
+        setViewLoading(true);
+        getReportDetailsByAppointmentId(report.appointmentId)
+            .then((res) => setViewDetails(res))
+            .catch(() => setViewDetails(null))
+            .finally(() => setViewLoading(false));
+    };
     const [filters, setFilters] = useState<DataTableFilterMeta>({
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
@@ -45,6 +64,7 @@ const ApReport = ({ appointment }: any) => {
             diagnosis: "",
             referral: "",
             notes: "",
+            followUpDate: null as string | null,
             prescription: {
                 medicines: [] as Medicine[],
             }
@@ -66,40 +86,7 @@ const ApReport = ({ appointment }: any) => {
     });
 
     useEffect(() => {
-        console.log("APREPORT APPOINTMENT:", appointment);
-        console.log("PATIENT ID:", appointment?.patientId);
-        console.log("APPOINTMENT ID:", appointment?.id);
-
-        if (!appointment?.patientId) {
-            console.log("NO PATIENT ID");
-            setData([]);
-            setAllowAdd(false);
-            return;
-        }
-
-        getReportsByPatientId(appointment.patientId)
-            .then((res) => {
-                console.log("REPORT API RESPONSE:", res);
-                setData(res);
-            })
-            .catch((err) => {
-                console.error("REPORT API ERROR:", err);
-                setData([]);
-            });
-
-        if (appointment.status === "SCHEDULED") {
-            isReportExists(appointment.id)
-                .then((res) => {
-                    setAllowAdd(!res);
-                })
-                .catch((err) => {
-                    console.error("REPORT EXISTS ERROR:", err);
-                    setAllowAdd(false);
-                });
-        } else {
-            setAllowAdd(false);
-        }
-
+        fetchData();
     }, [appointment?.patientId, appointment?.id, appointment?.status]);
 
     useEffect(() => {
@@ -123,13 +110,16 @@ const ApReport = ({ appointment }: any) => {
 
         getReportsByPatientId(appointment.patientId)
             .then((res) => {
-                setData(res);
+                setData(res || []);
             })
             .catch((err) => {
                 console.error("error fetching reports: ", err);
+                setData([]);
             });
 
-        if (appointment?.status === 'COMPLETED') {
+        // A report can be added only while the appointment is SCHEDULED; creating it completes the
+        // appointment (backend also rejects appointments more than 1 hour in the future).
+        if (appointment?.status === 'SCHEDULED') {
             isReportExists(appointment.id)
                 .then((res) => {
                     setAllowAdd(!res);
@@ -184,6 +174,7 @@ const ApReport = ({ appointment }: any) => {
     const handleSubmit = (values: typeof form.values) => {
         let data = {
             ...values,
+            followUpDate: values.followUpDate ? dayjs(values.followUpDate).format("YYYY-MM-DD") : null,
             doctorId: appointment.doctorId,
             patientId: appointment.patientId,
             appointmentId: appointment.id,
@@ -205,6 +196,11 @@ const ApReport = ({ appointment }: any) => {
             setEdit(false);
             setAllowAdd(false);
             fetchData();
+            // Refresh medical history / prescriptions views and the appointment status (now COMPLETED).
+            queryClient.invalidateQueries({ queryKey: ["patientReports", appointment.patientId] });
+            queryClient.invalidateQueries({ queryKey: ["patientPrescriptions", appointment.patientId] });
+            queryClient.invalidateQueries({ queryKey: ["patientAppointments", appointment.patientId] });
+            onReportCreated?.();
         }).catch((error) => {
             errorNotification(error?.response?.data?.errorMessage || "Failed to create report");
         }).finally(() => {
@@ -275,7 +271,7 @@ const ApReport = ({ appointment }: any) => {
                             dataKey="id"
                             filters={filters}
                             filterDisplay="menu"
-                            globalFilterFields={['doctorName', 'notes']}
+                            globalFilterFields={['doctorName', 'notes', 'diagnosis', 'referral']}
                             emptyMessage="No Report found."
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
                         >
@@ -287,7 +283,23 @@ const ApReport = ({ appointment }: any) => {
                                 sortable
                                 body={(rowData) => formatDate(rowData.createdAt)}
                             />
+                            <Column
+                                header="Symptoms"
+                                body={(rowData) => (rowData.symptoms || []).join(", ")}
+                            />
+                            <Column
+                                header="Follow-up"
+                                body={(rowData) => formatDate(rowData.followUpDate) || "—"}
+                            />
                             <Column field="notes" header="Notes" />
+                            <Column
+                                headerStyle={{ width: "4rem" }}
+                                body={(rowData) => (
+                                    <ActionIcon variant="subtle" onClick={() => openReport(rowData)} title="View full report">
+                                        <IconEye size={18} />
+                                    </ActionIcon>
+                                )}
+                            />
                         </DataTable>
                     ) : (
                         <div className='grid grid-cols-4 gap-5'>
@@ -328,6 +340,13 @@ const ApReport = ({ appointment }: any) => {
                             {...form.getInputProps("referral")}
                             label="Referral"
                             placeholder="Enter Referral Details"
+                        />
+                        <DateInput
+                            {...form.getInputProps("followUpDate")}
+                            label="Follow-up Date"
+                            placeholder="Optional"
+                            clearable
+                            minDate={dayjs().format("YYYY-MM-DD")}
                         />
                         <Textarea
                             {...form.getInputProps("notes")}
@@ -439,6 +458,38 @@ const ApReport = ({ appointment }: any) => {
                     </div>
                 </form>
             )}
+
+            <Modal opened={!!viewing} onClose={() => setViewing(null)} size="lg" centered
+                title={<Text fw={600}>Report — {formatDate(viewing?.createdAt)}</Text>}>
+                {viewing && (
+                    <div className="flex flex-col gap-3">
+                        <SimpleGrid cols={2} spacing="xs">
+                            <div><Text size="xs" c="dimmed">Doctor</Text><Text size="sm">{viewing.doctorName}</Text></div>
+                            <div><Text size="xs" c="dimmed">Diagnosis</Text><Text size="sm">{viewing.diagnosis || "—"}</Text></div>
+                            <div><Text size="xs" c="dimmed">Referral</Text><Text size="sm">{viewing.referral || "—"}</Text></div>
+                            <div><Text size="xs" c="dimmed">Follow-up</Text><Text size="sm">{formatDate(viewing.followUpDate) || "—"}</Text></div>
+                        </SimpleGrid>
+                        <div>
+                            <Text size="xs" c="dimmed">Symptoms</Text>
+                            <Group gap={4}>{(viewing.symptoms || []).map((x: string) => <Badge key={x} variant="light">{x}</Badge>)}</Group>
+                        </div>
+                        <div>
+                            <Text size="xs" c="dimmed">Tests</Text>
+                            <Group gap={4}>{(viewing.tests || []).length ? viewing.tests.map((x: string) => <Badge key={x} color="grape" variant="light">{x}</Badge>) : <Text size="sm">—</Text>}</Group>
+                        </div>
+                        <div><Text size="xs" c="dimmed">Notes</Text><Text size="sm">{viewing.notes || "—"}</Text></div>
+                        <Divider label="Prescription" labelPosition="left" />
+                        {viewLoading && <Loader size="sm" />}
+                        {!viewLoading && (viewDetails?.prescription?.medicines?.length ? (
+                            viewDetails.prescription.medicines.map((m: any, i: number) => (
+                                <Text size="sm" key={m.id ?? i}>
+                                    <b>{m.name}</b> {m.dosage} · {m.frequency} · {m.duration} days{m.route ? ` · ${m.route}` : ""}{m.instructions ? ` · ${m.instructions}` : ""}
+                                </Text>
+                            ))
+                        ) : <Text size="sm" c="dimmed">No medicines prescribed.</Text>)}
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

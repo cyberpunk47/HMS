@@ -8,7 +8,8 @@ import { ActionIcon, Button, Center, LoadingOverlay, Modal, SegmentedControl, Se
 
 import { useDisclosure } from '@mantine/hooks';
 import { getDoctorDropdown } from '../../../Service/DoctorProfileService';
-import { DateTimePicker } from '@mantine/dates';
+import SlotPicker from '../../Utilities/SlotPicker/SlotPicker';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
 import { appointmentReasons } from '../../../data/DropdownData';
 import { useSelector } from 'react-redux';
@@ -54,6 +55,8 @@ const Appointment = () => {
     const [doctors, setDoctors] = useState<any[]>([]);
     const [appointments, setAppointments] = useState<any[]>([]);
     const user = useSelector((state: any) => state.user);
+    const queryClient = useQueryClient();
+    const [appointmentDate, setAppointmentDate] = useState<string | null>(null);
     const [filters, setFilters] = useState<DataTableFilterMeta>({
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
         doctorName: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
@@ -78,6 +81,9 @@ const Appointment = () => {
             case 'negotiation':
                 return 'warning';
 
+            case 'EXPIRED':
+                return 'secondary';
+
             default:
                 return null;
         }
@@ -96,7 +102,6 @@ const Appointment = () => {
         fetchData();
 
         getDoctorDropdown().then((data) => {
-            console.log(data);
             setDoctors(data.map((doctor: any) => ({
                 value: "" + doctor.id,
                 label: doctor.name
@@ -130,14 +135,14 @@ const Appointment = () => {
         initialValues: {
             doctorId: '',
             patientId: user.profileId,
-            appointmentTime: new Date(),
+            appointmentTime: '',
             reason: '',
             notes: "",
         },
 
         validate: {
             doctorId: (value: any) => !value ? 'Doctor is required' : undefined,
-            appointmentTime: (value: any) => !value ? 'Appointment Time is required' : undefined,
+            appointmentTime: (value: any) => !value ? 'Please pick a free time slot' : undefined,
             reason: (value: any) => !value ? 'Reason is required' : undefined,
         },
     });
@@ -174,7 +179,7 @@ const Appointment = () => {
                     successNotification("Appointment cancelled successfully");
                     setAppointments(appointments.map((appointment) => appointment.id == rowData.id ? { ...appointment, status: 'CANCELLED' } : appointment));
                 }).catch((error) => {
-                    errorNotification(error.response?.data?.message || "Failed to cancel appointment");
+                    errorNotification(error.response?.data?.errorMessage || "Failed to cancel appointment");
                 });
             },
         });
@@ -193,22 +198,25 @@ const Appointment = () => {
     const header = renderHeader();
 
     const handleSubmit = (values: any) => {
+        // appointmentTime already comes from the slot picker as "YYYY-MM-DDTHH:mm:ss".
         const formattedValues = {
             ...values,
+            patientId: user.profileId,
             appointmentTime: dayjs(values.appointmentTime).format("YYYY-MM-DDTHH:mm:ss")
         };
-        console.log(formattedValues);
-        form.validate();
-        fetchData();
         setLoading(true);
-        scheduleAppointment(formattedValues).then((data) => {
+        scheduleAppointment(formattedValues).then(() => {
             close();
             form.reset();
+            setAppointmentDate(null);
             successNotification("Appointment scheduled successfully");
-
+            fetchData();
         }).catch((error) => {
-            errorNotification(error.response?.data?.message || "Failed to schedule appointment");
+            // Backend ErrorInfo uses "errorMessage" (e.g. doctor already booked within 15 minutes).
+            errorNotification(error.response?.data?.errorMessage || "Failed to schedule appointment");
         }).finally(() => {
+            // The slot may have just been taken by someone else: refresh booked slots either way.
+            queryClient.invalidateQueries({ queryKey: ["bookedSlots"] });
             setLoading(false);
         });
     };
@@ -274,8 +282,19 @@ const Appointment = () => {
             <Modal opened={opened} size={'lg'} onClose={close} title={<div className='text-xl font-semibold text-primary-500'>Schedule Appointment</div>} centered>
                 <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                 <form onSubmit={form.onSubmit(handleSubmit)} className='grid grid-cols-1 gap-5'>
-                    <Select {...form.getInputProps('doctorId')} withAsterisk data={doctors} label="Doctor" placeholder='Select a doctor' />
-                    <DateTimePicker minDate={new Date()} {...form.getInputProps('appointmentTime')} withAsterisk label="Appointment Time" placeholder='Pick date and time' />
+                    <Select {...form.getInputProps('doctorId')} withAsterisk data={doctors} searchable label="Doctor" placeholder='Select a doctor'
+                        onChange={(value: any) => {
+                            form.setFieldValue('doctorId', value);
+                            form.setFieldValue('appointmentTime', '');
+                        }} />
+                    <SlotPicker
+                        doctorId={form.values.doctorId}
+                        date={appointmentDate}
+                        onDateChange={setAppointmentDate}
+                        value={form.values.appointmentTime}
+                        onChange={(v) => form.setFieldValue('appointmentTime', v)}
+                        error={form.errors.appointmentTime}
+                    />
                     <Select {...form.getInputProps('reason')} withAsterisk data={appointmentReasons} label="Reason for Appointment" placeholder='Select reason for appointment' />
                     <Textarea {...form.getInputProps('notes')} label="Additional Notes" placeholder='Enter any additional notes' />
                     <Button type='submit' fullWidth mt={10} variant='filled'>Submit</Button>

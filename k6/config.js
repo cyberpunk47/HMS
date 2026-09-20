@@ -1,11 +1,10 @@
-// ---------------------------------------------------------------------------
-// Run with: k6 run -e BASE_URL=... -e PHASE=validation|100k|500k|1m benchmark.js
-// TARGET_RATE is exact: total requests per TARGET_TIME_UNIT.
-// Using 6s keeps k6's constant-arrival-rate `rate` integer:
-//   1m -> 10,000 requests / 6s == 1,000,000 / 600s
-// This is fed straight into a `constant-arrival-rate` executor — NOT ramping —
-// so the math holds exactly for the "N requests" claim, per your requirement.
-// ---------------------------------------------------------------------------
+// HMS K6 benchmark configuration
+// Run:
+//   k6 run -e BASE_URL=http://HMS_IP:9000 -e PHASE=validation benchmark.js
+//   k6 run -e BASE_URL=http://HMS_IP:9000 -e PHASE=100k benchmark.js
+//   k6 run -e BASE_URL=http://HMS_IP:9000 -e PHASE=500k benchmark.js
+//   k6 run -e BASE_URL=http://HMS_IP:9000 -e PHASE=1m benchmark.js
+
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:9000';
 
 const PHASES = {
@@ -17,22 +16,24 @@ const PHASES = {
 
 const phaseKey = __ENV.PHASE || 'validation';
 const phase = PHASES[phaseKey];
+
 if (!phase) {
-  throw new Error(`Unknown PHASE "${phaseKey}" — use one of: validation, 100k, 500k, 1m`);
+  throw new Error(
+    `Unknown PHASE "${phaseKey}" — use validation, 100k, 500k, or 1m`
+  );
 }
 
 export const PHASE_NAME = phaseKey;
 export const TARGET_TOTAL = phase.total;
 export const DURATION_SEC = phase.durationSec;
+
+// 6s keeps the arrival rate integer while preserving the exact RPS.
 export const TARGET_TIME_UNIT = '6s';
-export const TARGET_TIME_UNIT_SEC = 6;
-export const TARGET_RATE = TARGET_TOTAL / (DURATION_SEC / TARGET_TIME_UNIT_SEC);
+export const TARGET_RATE = TARGET_TOTAL / (DURATION_SEC / 6);
 export const TARGET_RATE_RPS = TARGET_TOTAL / DURATION_SEC;
 
-// Traffic mix — must sum to 1.0.
-// Your spec's "remaining 5%" is folded into GET (a broader read mix), per
-// your own note that it could go to "another confirmed GET/POST workload" —
-// simpler than inventing a separate ambiguous bucket. Adjust freely.
+// Exact benchmark mix:
+// GET 75%, POST 10%, PUT 5%, LOGIN 7%, SIGNUP 3%.
 export const TRAFFIC_MIX = [
   ['GET', 0.75],
   ['POST', 0.10],
@@ -41,6 +42,5 @@ export const TRAFFIC_MIX = [
   ['SIGNUP', 0.03],
 ];
 
-// Must match what's actually seeded in the DB / present in tokens.json.
 export const PATIENT_COUNT = Number(__ENV.PATIENT_COUNT) || 1000;
 export const DOCTOR_COUNT = Number(__ENV.DOCTOR_COUNT) || 1000;

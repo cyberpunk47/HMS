@@ -4,14 +4,18 @@ import com.hms.appointment.dto.AppointmentDetails;
 import com.hms.appointment.dto.MonthlyVisitDTO;
 import com.hms.appointment.dto.ReasonCountDTO;
 import com.hms.appointment.dto.Status;
+import com.hms.appointment.dto.StatusCountDTO;
 import com.hms.appointment.entity.Appointment;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
-public interface AppointmentRepository extends CrudRepository<Appointment, Long> {
+public interface AppointmentRepository extends CrudRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
     @Query("SELECT new com.hms.appointment.dto.AppointmentDetails(a.id, a.patientId, null, null, null, a.doctorId, null , a.appointmentTime, a.status, a.reason, a.notes) FROM Appointment a WHERE a.patientId = ?1")
     List<AppointmentDetails> findAllByPatientId(Long patientId);
 
@@ -59,4 +63,54 @@ public interface AppointmentRepository extends CrudRepository<Appointment, Long>
             "GROUP BY to_char(a.appointment_time, 'FMMonth')", nativeQuery = true)
     List<MonthlyVisitDTO> countCurrentYearPatientsByDoctor(Long doctorId);
 
+
+    // ---------------------------------------------------------------------
+    // Slot-window conflict checks (15-minute rule).
+    // An appointment conflicts when another ACTIVE appointment of the same
+    // doctor/patient lies strictly inside (time - window, time + window).
+    // excludeId lets reschedule ignore the appointment being moved (-1 = none).
+    // ---------------------------------------------------------------------
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Appointment a "
+            + "WHERE a.doctorId = :doctorId AND a.status IN :statuses "
+            + "AND a.appointmentTime > :windowStart AND a.appointmentTime < :windowEnd "
+            + "AND a.id <> :excludeId")
+    boolean existsDoctorAppointmentInWindow(@Param("doctorId") Long doctorId,
+            @Param("statuses") Collection<Status> statuses,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("windowEnd") LocalDateTime windowEnd,
+            @Param("excludeId") Long excludeId);
+
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Appointment a "
+            + "WHERE a.patientId = :patientId AND a.status IN :statuses "
+            + "AND a.appointmentTime > :windowStart AND a.appointmentTime < :windowEnd "
+            + "AND a.id <> :excludeId")
+    boolean existsPatientAppointmentInWindow(@Param("patientId") Long patientId,
+            @Param("statuses") Collection<Status> statuses,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("windowEnd") LocalDateTime windowEnd,
+            @Param("excludeId") Long excludeId);
+
+    // Transaction-scoped PostgreSQL advisory lock. Serialises concurrent bookings
+    // for the same doctor / patient so the window check above cannot race.
+    // Released automatically on commit/rollback.
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:lockKey)", nativeQuery = true)
+    Integer acquireTransactionLock(@Param("lockKey") long lockKey);
+
+    // Active appointment times of a doctor in a time range (used by the slot picker).
+    @Query("SELECT a.appointmentTime FROM Appointment a WHERE a.doctorId = :doctorId "
+            + "AND a.status IN :statuses AND a.appointmentTime >= :rangeStart AND a.appointmentTime < :rangeEnd "
+            + "ORDER BY a.appointmentTime")
+    List<LocalDateTime> findActiveAppointmentTimes(@Param("doctorId") Long doctorId,
+            @Param("statuses") Collection<Status> statuses,
+            @Param("rangeStart") LocalDateTime rangeStart,
+            @Param("rangeEnd") LocalDateTime rangeEnd);
+
+    // Access control (called by the Gateway): how many of these patients ever had an appointment
+    // with the doctor (any status - the doctor keeps access to their patients' history).
+    @Query("SELECT COUNT(DISTINCT a.patientId) FROM Appointment a WHERE a.doctorId = :doctorId AND a.patientId IN :patientIds")
+    long countDistinctPatientsOfDoctor(@Param("doctorId") Long doctorId, @Param("patientIds") Collection<Long> patientIds);
+
+    // Admin overview: number of appointments per status.
+    @Query("SELECT a.status AS status, COUNT(a) AS count FROM Appointment a GROUP BY a.status")
+    List<StatusCountDTO> countByStatus();
 }

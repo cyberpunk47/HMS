@@ -112,8 +112,7 @@ public class MedicineInventoryServiceImpl implements MedicineInventoryService {
     public String sellStock(Long medicineId, Integer quantity) throws HmsException {
         // fetch the old ones first which are expiring
         List<MedicineInventory> batches = medicineInventoryRepository
-                .findByMedicineIdAndExpiryDateAfterAndQuantityGreaterThanAndStatusOrderByExpiryDateAsc(medicineId,
-                        LocalDate.now(), 0, StockStatus.ACTIVE);
+                .findSellableBatchesForUpdate(medicineId, LocalDate.now(), 0, StockStatus.ACTIVE);
         // if batches are empty means medicine is out of stock
         if (batches.isEmpty()) {
             throw new HmsException("OUT_OF_STOCK");

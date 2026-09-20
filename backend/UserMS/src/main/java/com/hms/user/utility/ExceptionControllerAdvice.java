@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.hms.user.exception.ForbiddenException;
 import com.hms.user.exception.HmsException;
 
 import jakarta.validation.ConstraintViolation;
@@ -28,6 +29,12 @@ public class ExceptionControllerAdvice {
     public ResponseEntity<ErrorInfo> exceptionHandler(Exception e){
         ErrorInfo error = new ErrorInfo("Some error occurred", HttpStatus.INTERNAL_SERVER_ERROR.value(), LocalDateTime.now());
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorInfo> forbiddenHandler(ForbiddenException e){
+        ErrorInfo error = new ErrorInfo(e.getMessage(), HttpStatus.FORBIDDEN.value(), LocalDateTime.now());
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(HmsException.class)

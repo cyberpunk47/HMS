@@ -70,16 +70,17 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         List<PrescriptionDetails> prescriptionDetails = prescriptions.stream()
                 .map(Prescription::toDetails)
                 .toList();
-        prescriptionDetails.forEach(details -> {
-            details.setMedicines(medicineService.getAllMedicinesByPrescriptionId(details.getId()));
-        });
+        attachMedicines(prescriptionDetails);
         List<Long> doctorsIds = prescriptionDetails.stream()
                 .map(PrescriptionDetails::getDoctorId)
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
-        List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorsIds);
-        Map<Long, String> doctorMap = doctorNames.stream()
-                .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+        // Bug fix: skip the ProfileMS call when there is nothing to resolve (an empty "ids" list
+        // made the Feign call fail and the Prescriptions tab returned 500 for new patients).
+        Map<Long, String> doctorMap = doctorsIds.isEmpty() ? Map.of()
+                : profileClient.getDoctorsById(doctorsIds).stream()
+                        .collect(Collectors.toMap(DoctorName::getId, DoctorName::getName, (a, b) -> a));
         prescriptionDetails.forEach(details -> {
             String doctorName = doctorMap.get(details.getDoctorId());
             if (doctorName != null) {
@@ -90,6 +91,18 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         });
 
         return prescriptionDetails;
+    }
+
+    // One query for all medicines instead of one query per prescription (same response shape).
+    private void attachMedicines(List<PrescriptionDetails> prescriptionDetails) {
+        if (prescriptionDetails.isEmpty()) {
+            return;
+        }
+        List<Long> ids = prescriptionDetails.stream().map(PrescriptionDetails::getId).toList();
+        Map<Long, List<MedicineDTO>> byPrescription = medicineService.getMedicinesByPrescriptionIds(ids).stream()
+                .collect(Collectors.groupingBy(MedicineDTO::getPrescriptionId));
+        prescriptionDetails.forEach(details ->
+                details.setMedicines(byPrescription.getOrDefault(details.getId(), List.of())));
     }
 
 	@Override
@@ -106,14 +119,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 				.map(PrescriptionDetails::getPatientId)
 				.distinct()
 				.toList();
-		List<DoctorName> doctorNames = profileClient.getDoctorsById(doctorIds);
-		List<PatientName> patientNames = profileClient.getPatientsById(patientIds);
+		List<DoctorName> doctorNames = doctorIds.isEmpty() ? List.of() : profileClient.getDoctorsById(doctorIds);
+		List<PatientName> patientNames = patientIds.isEmpty() ? List.of() : profileClient.getPatientsById(patientIds);
 		
 		Map<Long, String> doctorMap = doctorNames.stream()
-				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName));
+				.collect(Collectors.toMap(DoctorName::getId, DoctorName::getName, (a, b) -> a));
 				
 		Map<Long, String> patientMap = patientNames.stream()
-				.collect(Collectors.toMap(PatientName::getId, PatientName::getName));
+				.collect(Collectors.toMap(PatientName::getId, PatientName::getName, (a, b) -> a));
 		
 		prescriptionDetails.forEach(details -> {
             String doctorName = doctorMap.get(details.getDoctorId());

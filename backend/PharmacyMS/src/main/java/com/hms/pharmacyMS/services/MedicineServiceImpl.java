@@ -72,7 +72,7 @@ public class MedicineServiceImpl implements MedicineService{
     @Override
     @Transactional
     public Integer addStock(Long id, Integer quantity) throws HmsException {
-        Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
+        Medicine medicine = medicineRepository.findByIdForUpdate(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
         medicine.setStock(medicine.getStock() != null? medicine.getStock() + quantity : quantity );
         medicineRepository.save(medicine);
         return medicine.getStock();
@@ -81,7 +81,7 @@ public class MedicineServiceImpl implements MedicineService{
     @Override
     @Transactional
     public Integer removeStock(Long id, Integer quantity) throws HmsException {
-        Medicine medicine = medicineRepository.findById(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
+        Medicine medicine = medicineRepository.findByIdForUpdate(id).orElseThrow(()-> new HmsException("MEDICINE_NOT_FOUND"));
         // if medicine is not found throw exception
         medicine.setStock(medicine.getStock() != null? medicine.getStock()-quantity : 0 ); 
         // Here we are checking and subtracting the stock from the quantity of medicine 

@@ -29,6 +29,7 @@ const adminLinks: SidebarLink[] = [
   { name: "Dashboard", url: "/admin/dashboard", icon: <LayoutDashboard size={20} /> },
   { name: "Patients", url: "/admin/patients", icon: <Users size={20} /> },
   { name: "Doctors", url: "/admin/doctors", icon: <Stethoscope size={20} /> },
+  { name: "Appointments", url: "/admin/appointments", icon: <Calendar size={20} /> },
   { name: "Medicine", url: "/admin/medicine", icon: <Pill size={20} /> },
   { name: "Inventory", url: "/admin/inventory", icon: <Package size={20} /> },
   { name: "Sales", url: "/admin/sales", icon: <Receipt size={20} /> },

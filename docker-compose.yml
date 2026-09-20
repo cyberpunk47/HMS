@@ -88,6 +88,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Same secret as user-ms; different per environment (see .env.example)
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is not set - add it to .env (openssl rand -base64 64)}
     ports:
       - "9000:9000"
     depends_on:
@@ -107,6 +109,8 @@ services:
     container_name: hms-user-ms
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is not set - add it to .env (openssl rand -base64 64)}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     ports:
       - "8082:8082"
     depends_on:
@@ -124,6 +128,7 @@ services:
     container_name: hms-profile-ms
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     ports:
       - "9100:9100"
     depends_on:
@@ -141,6 +146,8 @@ services:
     container_name: hms-appointment-ms
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      HMS_BUSINESS_TIMEZONE: ${HMS_BUSINESS_TIMEZONE:-Asia/Kolkata}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     ports:
       - "9200:9200"
     depends_on:
@@ -160,6 +167,7 @@ services:
     container_name: hms-pharmacy-ms
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     ports:
       - "9300:9300"
     depends_on:

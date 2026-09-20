@@ -4,8 +4,10 @@ import com.hms.appointment.dto.ApRecordDTO;
 import com.hms.appointment.dto.MedicineDTO;
 import com.hms.appointment.dto.PrescriptionDetails;
 import com.hms.appointment.dto.RecordDetails;
+import com.hms.appointment.exception.ForbiddenException;
 import com.hms.appointment.exception.HmsException;
 import com.hms.appointment.service.ApRecordService;
+import com.hms.appointment.service.AppointmentService;
 import com.hms.appointment.service.MedicineService;
 import com.hms.appointment.service.PrescriptionService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/appointment/report")
@@ -24,14 +27,27 @@ public class ApRecordAPI {
     private final ApRecordService apRecordService;
     private final PrescriptionService prescriptionService;
     private final MedicineService medicineService;
+    private final AppointmentService appointmentService;
 
     @PostMapping("/create")
-    public ResponseEntity<Long> createAppointmentReport(@RequestBody ApRecordDTO request) throws HmsException {
+    public ResponseEntity<Long> createAppointmentReport(@RequestBody ApRecordDTO request,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException {
+        if ("DOCTOR".equals(role) && request.getAppointmentId() != null
+                && !Objects.equals(appointmentService.getAppointmentDetails(request.getAppointmentId()).getDoctorId(), profileId)) {
+            throw new ForbiddenException("Doctors can only write reports for their own appointments.");
+        }
         return new ResponseEntity<>(apRecordService.createApRecord(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/update")
-    public ResponseEntity<String> updateAppointmentReport(@RequestBody ApRecordDTO request) throws HmsException{
+    public ResponseEntity<String> updateAppointmentReport(@RequestBody ApRecordDTO request,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException{
+        if ("DOCTOR".equals(role) && request.getId() != null
+                && !Objects.equals(apRecordService.getApRecordById(request.getId()).getDoctorId(), profileId)) {
+            throw new ForbiddenException("Doctors can only update their own reports.");
+        }
         apRecordService.updateApRecord(request);
         return  new ResponseEntity<>("Appointment Report Updated", HttpStatus.OK);
     }

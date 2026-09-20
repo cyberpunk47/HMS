@@ -20,17 +20,12 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     public Long addDoctor(DoctorDTO doctorDTO) throws HmsException {
 
-        long startTime = System.nanoTime();
         if (doctorDTO.getEmail() != null && doctorRepository.findByEmail(doctorDTO.getEmail()).isPresent())
             throw new HmsException("DOCTOR_ALREADY_EXISTS");
         if (doctorDTO.getLicenseNo() != null && doctorRepository.findBylicenseNo(doctorDTO.getLicenseNo()).isPresent())
             throw new HmsException("DOCTOR_ALREADY_EXISTS");
-        System.out.println("findByEmail : " + (System.nanoTime() - startTime) / 1000000 + " ms");
 
-        long startTime2 = System.nanoTime();
-        Long id = doctorRepository.save(doctorDTO.toEntity()).getId();
-        System.out.println("save : " + (System.nanoTime() - startTime2) / 1000000 + " ms");
-        return id;
+        return doctorRepository.save(doctorDTO.toEntity()).getId();
     }
 
     @Override
@@ -57,6 +52,11 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     public List<DoctorDropdown> getDoctorsById(List<Long> ids) throws HmsException {
         return doctorRepository.findAllDoctorDropdownsByIds(ids);
+    }
+
+    @Override
+    public List<DoctorDTO> getDoctorsDetailsByIds(List<Long> ids) throws HmsException {
+        return ((List<Doctor>) doctorRepository.findAllById(ids)).stream().map(Doctor::toDTO).toList();
     }
 
     @Override

@@ -11,5 +11,6 @@ public interface UserService {
     public UserDTO getUser(String email) throws HmsException;
     public Long getProfilePictureId(Long id) throws HmsException;
     public com.hms.user.dto.RegistrationCountsDTO getRegistrationCounts() throws HmsException;
+    public boolean adminExists();
     
 } 

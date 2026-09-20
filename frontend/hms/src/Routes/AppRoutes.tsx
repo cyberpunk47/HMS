@@ -22,6 +22,7 @@ const AdminInventoryPage = lazy(() => import("../Pages/Admin/AdminInventoryPage"
 const AdminSalesPage = lazy(() => import("../Pages/Admin/AdminSalesPage"));
 const AdminPatientPage = lazy(() => import("../Pages/Admin/AdminPatientPage"));
 const AdminDoctorPage = lazy(() => import("../Pages/Admin/AdminDoctorPage"));
+const AdminAppointmentsPage = lazy(() => import("../Pages/Admin/AdminAppointmentsPage"));
 
 const DoctorDashboardPage = lazy(() => import("../Pages/Doctor/DoctorDashboardPage"));
 const DoctorProfilePage = lazy(() => import("../Pages/Doctor/DoctorProfilePage"));
@@ -101,7 +102,7 @@ const AppRoutes = () => {
                     <Route
                         path="/admin"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedRoute role="ADMIN">
                                 <AdminDashboard />
                             </ProtectedRoute>
                         }
@@ -136,6 +137,11 @@ const AppRoutes = () => {
                             element={<AdminDoctorPage />}
                         />
 
+                        <Route
+                            path="appointments"
+                            element={<AdminAppointmentsPage />}
+                        />
+
                         {/* <Route
                             path="testing"
                             element={<DashboardPage />}
@@ -146,7 +152,7 @@ const AppRoutes = () => {
                     <Route
                         path="/doctor"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedRoute role="DOCTOR">
                                 <DoctorDashboard />
                             </ProtectedRoute>
                         }
@@ -186,7 +192,7 @@ const AppRoutes = () => {
                     <Route
                         path="/patient"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedRoute role="PATIENT">
                                 <PatientDashboard />
                             </ProtectedRoute>
                         }

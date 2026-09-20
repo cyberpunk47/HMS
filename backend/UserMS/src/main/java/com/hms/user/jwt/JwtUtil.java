@@ -1,9 +1,11 @@
 package com.hms.user.jwt;
 
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +17,26 @@ public class JwtUtil {
 
     private static final Long JWT_TOKEN_VALIDITY = 5 * 60 * 60L;
 
-    private static final String SECRET= "814b9fa5df51e0cbb0059bbee01f0b2c91f3211e4715ffe1370147047ec4e57bf7a5f89638677afdd1456f3e37db36c8ab55229a38f89002e9e1b97a28370486";
+    // Per-environment signing secret (JWT_SECRET). The Gateway must use the same value.
+    // The previous hard-coded secret was shared by every environment (and is in git history),
+    // so any token signed on one machine was valid everywhere.
+    private final String secret;
+
+    public JwtUtil(@Value("${hms.jwt.secret:}") String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET is not set. Generate one with: openssl rand -base64 64");
+        }
+        byte[] key;
+        try {
+            key = Base64.getDecoder().decode(secret.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("JWT_SECRET must be base64 (use: openssl rand -base64 64)");
+        }
+        if (key.length < 64) {
+            throw new IllegalStateException("JWT_SECRET is too short for HS512 (" + key.length + " bytes, need >= 64)");
+        }
+        this.secret = secret.trim();
+    }
 
     public String generateToken(UserDetails userDetails){
         Map<String, Object> claims = new HashMap<>();
@@ -29,6 +50,6 @@ public class JwtUtil {
     }
     
     public String doGenerateToken(Map<String, Object> claims,String subject){
-        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis())).setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY * 1000)).signWith(SignatureAlgorithm.HS512, SECRET).compact();
+        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis())).setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY * 1000)).signWith(SignatureAlgorithm.HS512, secret).compact();
     }
 }

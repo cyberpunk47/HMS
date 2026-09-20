@@ -28,3 +28,7 @@ k6/tokens.json
 
 # Vercel
 .vercel.json
+# Benchmark data / results (generated, contain JWTs)
+k6/data/
+k6/results/
+k6/hms-monitor-*/

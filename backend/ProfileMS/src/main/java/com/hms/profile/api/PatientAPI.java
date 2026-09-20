@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.hms.profile.dto.PatientDTO;
 import com.hms.profile.dto.PatientDropdown;
+import com.hms.profile.exception.ForbiddenException;
 import com.hms.profile.exception.HmsException;
 import com.hms.profile.service.PatientService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @Validated
@@ -36,7 +38,13 @@ public class PatientAPI {
         return new ResponseEntity<>(patientService.getPatientById(id), HttpStatus.OK);
     }
     @PutMapping("/update")
-    public ResponseEntity<PatientDTO> updatePatient(@RequestBody PatientDTO patientDTO) throws HmsException {
+    public ResponseEntity<PatientDTO> updatePatient(@RequestBody PatientDTO patientDTO,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-Profile-Id", required = false) Long profileId) throws HmsException {
+        // Only admins or the owner of the profile may change it (headers set by the Gateway from the JWT).
+        if ("PATIENT".equals(role) && !java.util.Objects.equals(patientDTO.getId(), profileId)) {
+            throw new ForbiddenException("Patients can only update their own profile.");
+        }
         return new ResponseEntity<>(patientService.updatePatient(patientDTO), HttpStatus.OK);
     }
     @GetMapping("/exists/{id}")

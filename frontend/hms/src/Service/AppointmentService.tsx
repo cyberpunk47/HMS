@@ -142,4 +142,37 @@ const getUniquePatientDataForEachDoctor = async (doctorId: number) => {
         })
 }
 
+// Admin: every appointment in HMS, paginated.
+// params: { page, size, status?, from?, to?, doctorId?, patientId?, sort?: 'asc' | 'desc' }
+const getAllAppointmentsAdmin = async (params: Record<string, any>) => {
+    const clean = Object.fromEntries(
+        Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    );
+    return axiosInstance.get(`/appointment/all`, { params: clean })
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+const getAppointmentStatusCounts = async () => {
+    return axiosInstance.get(`/appointment/all/status-counts`)
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+// Active (SCHEDULED/COMPLETED) appointment times of a doctor around a date (YYYY-MM-DD).
+const getBookedSlots = async (doctorId: any, date: string) => {
+    return axiosInstance.get(`/appointment/doctor/${doctorId}/booked-slots`, { params: { date } })
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+// Full report (symptoms, tests, referral, follow-up) + prescription with medicines for one appointment.
+const getReportDetailsByAppointmentId = async (appointmentId: any) => {
+    return axiosInstance.get(`/appointment/report/getDetailsByAppointmentId/${appointmentId}`)
+        .then((response: any) => response.data)
+        .catch((error: any) => { throw error; })
+}
+
+export { getAllAppointmentsAdmin, getAppointmentStatusCounts, getBookedSlots, getReportDetailsByAppointmentId };
+
 export { scheduleAppointment, cancelAppointment, getAppointment, getAppointmentDetails, getAppointmentsByPatient, getAppointmentsByDoctor, createAppointmentReport, isReportExists, getReportsByPatientId, getPrescriptionsByPatientId, getAllPrescriptions, getMedicinesByPrescriptionId, countAppointmentsByPatient, countAppointmentsByDoctor, countAllAppointments, countReasonsByPatient, countReasonsByDoctor, countAllReasons, getMedicinesConsumedByPatient, getTodaysAppointments ,getPatientIdsByDoctor, getUniquePatientCountsByDoctor , getUniquePatientDataForEachDoctor }
