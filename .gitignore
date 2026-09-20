@@ -1,8 +1,6 @@
 # IDE / editor
-*.mvnw
-*.vscode
-*.idea
-*.github
+.vscode/
+.idea/
 
 # Build artifacts
 *.dist
@@ -25,10 +23,14 @@ k6/tokens.json
 .terraform/
 *.tfstate
 *.tfstate.*
+*.plan
+*.tfplan
+*.tfvars
 
 # Vercel
 .vercel.json
-# Benchmark data / results (generated, contain JWTs)
+
+# Benchmark data / results
 k6/data/
 k6/results/
 k6/hms-monitor-*/
