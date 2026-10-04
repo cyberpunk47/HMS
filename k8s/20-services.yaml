@@ -1,0 +1,287 @@
+###############################################################################
+# The six Spring Boot services.
+#
+# ONE Kubernetes-specific setting is required, and it is an environment variable,
+# not a code change:
+#
+#   EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+#
+# Why: by default a service registers itself in Eureka under its HOSTNAME. In
+# Docker Compose the hostname is the container name, which the Docker network
+# resolves. In Kubernetes the hostname is the pod name, which ordinary DNS does
+# NOT resolve — so Feign calls would fail with UnknownHost. Registering the pod
+# IP instead fixes it, and pod IPs are routable everywhere inside the cluster.
+#
+# Resource requests are mandatory here: autoscaling measures "percent of the CPU
+# you asked for", so a Deployment without a request can never be scaled.
+###############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: hms
+  labels: { app: gateway }
+spec:
+  selector: { app: gateway }
+  ports:
+    - name: http
+      port: 9000
+      targetPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: gateway
+          image: ${ECR_REGISTRY}/hms/gateway:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: FRONTEND_URL, value: "*" }
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: JWT_SECRET }
+          ports:
+            - containerPort: 9000
+          # The gateway is the pod that scales. Measured: ~1540 req/s per core,
+          # so one pod with a 1-core request handles ~1200 req/s at a safe 70%.
+          resources:
+            requests: { cpu: "1000m", memory: "512Mi" }
+            limits: { cpu: "2000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 9000 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 9000 }
+            initialDelaySeconds: 90
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-ms
+  namespace: hms
+  labels: { app: user-ms }
+spec:
+  selector: { app: user-ms }
+  ports: [{ name: http, port: 8082, targetPort: 8082 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-ms
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: user-ms }
+  template:
+    metadata:
+      labels: { app: user-ms }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: user-ms
+          image: ${ECR_REGISTRY}/hms/user-ms:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: SWAGGER_ENABLED, value: "false" }
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: JWT_SECRET }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+          ports: [{ containerPort: 8082 }]
+          resources:
+            requests: { cpu: "300m", memory: "512Mi" }
+            limits: { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8082 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile-ms
+  namespace: hms
+  labels: { app: profile-ms }
+spec:
+  selector: { app: profile-ms }
+  ports: [{ name: http, port: 9100, targetPort: 9100 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profile-ms
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: profile-ms }
+  template:
+    metadata:
+      labels: { app: profile-ms }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: profile-ms
+          image: ${ECR_REGISTRY}/hms/profile-ms:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: SWAGGER_ENABLED, value: "false" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+          ports: [{ containerPort: 9100 }]
+          resources:
+            requests: { cpu: "300m", memory: "512Mi" }
+            limits: { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 9100 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appointment-ms
+  namespace: hms
+  labels: { app: appointment-ms }
+spec:
+  selector: { app: appointment-ms }
+  ports: [{ name: http, port: 9200, targetPort: 9200 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appointment-ms
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: appointment-ms }
+  template:
+    metadata:
+      labels: { app: appointment-ms }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: appointment-ms
+          image: ${ECR_REGISTRY}/hms/appointment-ms:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: SWAGGER_ENABLED, value: "false" }
+            - { name: HMS_BUSINESS_TIMEZONE, value: "Asia/Kolkata" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+          ports: [{ containerPort: 9200 }]
+          resources:
+            requests: { cpu: "500m", memory: "640Mi" }
+            limits: { cpu: "1500m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 9200 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pharmacy-ms
+  namespace: hms
+  labels: { app: pharmacy-ms }
+spec:
+  selector: { app: pharmacy-ms }
+  ports: [{ name: http, port: 9300, targetPort: 9300 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pharmacy-ms
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pharmacy-ms }
+  template:
+    metadata:
+      labels: { app: pharmacy-ms }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: pharmacy-ms
+          image: ${ECR_REGISTRY}/hms/pharmacy-ms:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: SWAGGER_ENABLED, value: "false" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+          ports: [{ containerPort: 9300 }]
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 9300 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-ms
+  namespace: hms
+  labels: { app: notification-ms }
+spec:
+  selector: { app: notification-ms }
+  ports: [{ name: http, port: 9101, targetPort: 9101 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-ms
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: notification-ms }
+  template:
+    metadata:
+      labels: { app: notification-ms }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: notification-ms
+          image: ${ECR_REGISTRY}/hms/notification-ms:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+          ports: [{ containerPort: 9101 }]
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 9101 }
+            initialDelaySeconds: 40
+            periodSeconds: 10

@@ -1,0 +1,62 @@
+###############################################################################
+# Helm values for kube-prometheus-stack (Prometheus + Grafana + alert rules).
+#
+# Two settings here are not defaults and both matter:
+#
+# 1. remote-write-receiver — without it Prometheus refuses the metrics k6 pushes,
+#    and the dashboard would show cluster data but no load-test data.
+# 2. serviceMonitorSelectorNilUsesHelmValues: false — without it Prometheus only
+#    looks at ServiceMonitors from its own Helm release and silently ignores ours.
+###############################################################################
+prometheus:
+  prometheusSpec:
+    enableFeatures:
+      - remote-write-receiver
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 6h
+    resources:
+      requests: { cpu: "300m", memory: "1Gi" }
+      limits: { cpu: "1000m", memory: "2Gi" }
+    nodeSelector:
+      role: app
+
+grafana:
+  adminPassword: "CHANGE_ME_IN_PIPELINE" # the pipeline overrides this with --set
+  nodeSelector:
+    role: app
+  service:
+    # Its own internet-facing load balancer, locked to one IP (set by the
+    # pipeline from the OPERATOR_CIDR variable) so only you can open it.
+    type: LoadBalancer
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+  grafana.ini:
+    auth.anonymous:
+      enabled: false
+    users:
+      default_theme: light # projector-friendly
+
+# The demo cluster is short-lived; alert routing would have nowhere to send.
+alertmanager:
+  enabled: false
+
+# EKS manages the control plane, so these scrape targets do not exist here and
+# would show as permanently "down" on the dashboard.
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }
+
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+prometheus-node-exporter:
+  tolerations:
+    - operator: Exists # so the loadgen node is monitored too, despite its taint

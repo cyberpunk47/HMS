@@ -1,0 +1,44 @@
+###############################################################################
+# Tells Prometheus where to find the application metrics.
+#
+# A ServiceMonitor is a small object that says "scrape this Service, on this
+# port, at this path, every N seconds". Spring Boot already publishes the data at
+# /actuator/prometheus (micrometer-registry-prometheus is in every pom and
+# `prometheus` is in management.endpoints.web.exposure.include).
+#
+# One ServiceMonitor covers all six services because they share the label
+# pattern app=<name> and all answer on /actuator/prometheus.
+###############################################################################
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hms-services
+  namespace: hms
+  labels:
+    release: kube-prometheus-stack # this label is how the Prometheus operator picks it up
+spec:
+  namespaceSelector:
+    matchNames: ["hms"]
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - gateway
+          - user-ms
+          - profile-ms
+          - appointment-ms
+          - pharmacy-ms
+          - notification-ms
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s
+      scrapeTimeout: 10s
+      relabelings:
+        # Keeps the pod name on every sample, so Grafana can show per-pod lines
+        # and you can watch new pods appear during the load test.
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_service_label_app]
+          targetLabel: service

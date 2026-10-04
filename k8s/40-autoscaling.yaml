@@ -1,0 +1,112 @@
+###############################################################################
+# AUTOSCALING
+#
+# The gateway scales on REQUESTS PER SECOND, not on CPU. Two reasons:
+#
+#  1. It is the number you can defend. "One pod handles 1200 req/s" comes from a
+#     measurement: the gateway used 0.407 of a core while serving 628 req/s, i.e.
+#     ~1540 req/s per core, and 1200 is that at a safe 70%.
+#  2. It is deterministic on stage. 5000 req/s / 1200 = 5 pods, every time —
+#     a CPU-based rule would scale at whatever moment CPU happens to cross 60%.
+#
+# KEDA (Kubernetes Event-Driven Autoscaler) reads that rate straight out of
+# Prometheus. The metric comes from the ingress controller, not the application,
+# so it counts what actually arrived at the front door.
+#
+# The backend services still scale on CPU — they are not the entry point and
+# their load is proportional to the gateway's.
+###############################################################################
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: gateway
+  namespace: hms
+spec:
+  scaleTargetRef:
+    name: gateway
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  pollingInterval: 15 # how often KEDA asks Prometheus (seconds)
+  cooldownPeriod: 60 # wait this long after load stops before scaling in
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          # React immediately: during a 3-minute demo you cannot wait out the
+          # default 5-minute stabilisation window.
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+        scaleDown:
+          stabilizationWindowSeconds: 120
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+        metricName: hms_ingress_rps
+        # Total requests/second arriving at the HMS ingress. KEDA divides this by
+        # the threshold to decide how many pods it needs.
+        query: sum(rate(nginx_ingress_controller_requests{ingress="hms"}[1m]))
+        threshold: "1200"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: appointment-ms
+  namespace: hms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: appointment-ms
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: profile-ms
+  namespace: hms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: profile-ms
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-ms
+  namespace: hms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-ms
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65

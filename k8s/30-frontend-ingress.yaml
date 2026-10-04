@@ -1,0 +1,76 @@
+###############################################################################
+# The frontend, and the ONE public door into the whole system.
+#
+#   http://<load-balancer-host>/        -> frontend pods (React on nginx)
+#   http://<load-balancer-host>/api/... -> gateway pod   (/api is stripped off)
+#
+# Everything else (the five services, Postgres, Kafka, Eureka) has no public
+# address at all. That is the answer to "which IP is public and which is private":
+# exactly one hostname is public, and it is the same one a real user types.
+#
+# The load test fires at this hostname too, so the traffic takes the user's path
+# — load balancer, nginx, gateway, service — not a shortcut into the backend.
+###############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: hms
+  labels: { app: frontend }
+spec:
+  selector: { app: frontend }
+  ports: [{ name: http, port: 80, targetPort: 80 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: hms
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: frontend
+          image: ${ECR_REGISTRY}/hms/frontend:${IMAGE_TAG}
+          ports: [{ containerPort: 80 }]
+          resources:
+            requests: { cpu: "100m", memory: "64Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hms
+  namespace: hms
+  annotations:
+    # /api/profile/... reaches the gateway as /profile/... — same rewrite the
+    # Vercel configuration did, moved into the cluster.
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: gateway
+                port: { number: 9000 }
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend
+                port: { number: 80 }

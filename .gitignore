@@ -34,3 +34,5 @@ k6/tokens.json
 k6/data/
 k6/results/
 k6/hms-monitor-*/
+# Terraform variable values (contain your own IP; set per machine)
+**/terraform.tfvars

@@ -1,0 +1,51 @@
+###############################################################################
+# THE LOAD TEST  —  fired by the Jenkins job 'hms-loadtest', never by the build.
+#
+# k6-operator takes this TestRun object and starts `parallelism` pods that split
+# the target rate between them. Every one of those pods:
+#
+#   * runs ONLY on the loadgen node (nodeSelector + toleration for the taint), so
+#     the generator never competes with HMS for CPU,
+#   * hits the PUBLIC url — the same hostname a browser uses,
+#   * streams its metrics into Prometheus live, so k6's own numbers and the
+#     cluster's pod count appear on one Grafana dashboard, on one time axis.
+#
+# ${...} values are filled in by the pipeline.
+###############################################################################
+apiVersion: k6.io/v1alpha1
+kind: TestRun
+metadata:
+  name: hms-load-${RUN_ID}
+  namespace: hms
+spec:
+  parallelism: ${PARALLELISM}
+  script:
+    configMap:
+      name: k6-scripts
+      file: api-load.js
+  arguments: >-
+    -o experimental-prometheus-rw
+    --tag testid=hms-${RUN_ID}
+  runner:
+    # The fence: these pods are allowed on the tainted loadgen node, and nowhere else.
+    nodeSelector:
+      role: loadgen
+    tolerations:
+      - key: role
+        operator: Equal
+        value: loadgen
+        effect: NoSchedule
+    resources:
+      requests: { cpu: "1500m", memory: "1Gi" }
+      limits: { cpu: "3000m", memory: "2Gi" }
+    env:
+      # Target: the public address, through the ingress, /api path included.
+      - { name: BASE_URL, value: "${BASE_URL}" }
+      # Each runner pod generates its share of the total rate.
+      - { name: TARGET_RPS, value: "${RPS_PER_RUNNER}" }
+      - { name: DURATION, value: "${DURATION}" }
+      - { name: VU_CAP, value: "800" }
+      # Live results into Prometheus (the receiver is enabled in the Helm values).
+      - name: K6_PROMETHEUS_RW_SERVER_URL
+        value: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+      - { name: K6_PROMETHEUS_RW_TREND_STATS, value: "p(95),p(99),max,avg" }

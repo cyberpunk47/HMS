@@ -45,9 +45,11 @@ services:
       CLUSTER_ID: "hms-kafka-cluster-001"
 
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092 > /dev/null 2>&1"]
+      # Plain TCP port check: the kafka-*.sh CLI tools each start a new JVM, which burned
+      # 1-2 cores for a couple of seconds every interval and polluted benchmark latency.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/29092"]
       interval: 10s
-      timeout: 10s
+      timeout: 5s
       retries: 10
       start_period: 30s
 

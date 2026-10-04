@@ -1,0 +1,164 @@
+###############################################################################
+# PostgreSQL, Kafka and Eureka.
+#
+# The Service names here are deliberately `postgres`, `kafka` and `eureka-server`
+# — exactly the hostnames already written in application-docker.properties.
+# Kubernetes DNS resolves a Service by its name inside the namespace, so the
+# application configuration works unchanged. Zero code change for networking.
+#
+# Storage is emptyDir (a directory that lives only as long as the pod). This is a
+# demo cluster that gets destroyed the same day and re-seeded on every deploy, so
+# durable volumes would add IAM and CSI driver setup for no benefit. A real
+# deployment would use Amazon RDS and Amazon MSK instead — stated in the report.
+###############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: hms
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
+            - name: POSTGRES_DB
+              value: postgres
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: initdb
+          configMap: { name: postgres-init } # created by the pipeline from docker/postgres/init-databases.sql
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: hms
+spec:
+  selector: { app: kafka }
+  ports:
+    - name: plaintext
+      port: 29092
+      targetPort: 29092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: kafka }
+  template:
+    metadata:
+      labels: { app: kafka }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: kafka
+          image: apache/kafka:3.9.0
+          env:
+            - { name: KAFKA_NODE_ID, value: "1" }
+            - { name: KAFKA_PROCESS_ROLES, value: "broker,controller" }
+            - { name: KAFKA_CONTROLLER_QUORUM_VOTERS, value: "1@localhost:9093" }
+            - { name: KAFKA_CONTROLLER_LISTENER_NAMES, value: "CONTROLLER" }
+            - { name: KAFKA_LISTENERS, value: "PLAINTEXT://:29092,CONTROLLER://:9093" }
+            - { name: KAFKA_ADVERTISED_LISTENERS, value: "PLAINTEXT://kafka.hms.svc.cluster.local:29092" }
+            - { name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP, value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT" }
+            - { name: KAFKA_INTER_BROKER_LISTENER_NAME, value: "PLAINTEXT" }
+            - { name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR, value: "1" }
+            - { name: CLUSTER_ID, value: "hms-kafka-cluster-001" }
+          ports:
+            - containerPort: 29092
+          resources:
+            requests: { cpu: "250m", memory: "768Mi" }
+            limits: { cpu: "1000m", memory: "1536Mi" }
+          # Same lesson as the Docker Compose fix: a healthcheck that starts a JVM
+          # every few seconds steals CPU from the application. This one is a plain
+          # TCP connect.
+          readinessProbe:
+            tcpSocket: { port: 29092 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eureka-server
+  namespace: hms
+spec:
+  selector: { app: eureka-server }
+  ports:
+    - port: 8761
+      targetPort: 8761
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eureka-server
+  namespace: hms
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: eureka-server }
+  template:
+    metadata:
+      labels: { app: eureka-server }
+    spec:
+      nodeSelector: { role: app }
+      containers:
+        - name: eureka-server
+          image: ${ECR_REGISTRY}/hms/eureka-server:${IMAGE_TAG}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: docker }
+          ports:
+            - containerPort: 8761
+          resources:
+            requests: { cpu: "200m", memory: "384Mi" }
+            limits: { cpu: "500m", memory: "768Mi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8761 }
+            initialDelaySeconds: 30
+            periodSeconds: 10

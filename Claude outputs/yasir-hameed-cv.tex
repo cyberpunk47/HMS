@@ -1,0 +1,86 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[left=0.5in, right=0.5in, top=0.32in, bottom=0.3in]{geometry}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[none]{hyphenat}
+\usepackage{ragged2e}
+
+\definecolor{mainblue}{HTML}{000000}
+\hypersetup{colorlinks=true, urlcolor=black, linkcolor=black}
+
+\titleformat{\section}{\large\bfseries\color{mainblue}}{}{0em}{}[\vspace{2pt}\color{mainblue}\titlerule]
+\titlespacing*{\section}{0pt}{3pt}{1pt}
+
+\linespread{0.96}\selectfont
+\RaggedRight
+\setlength{\parindent}{0pt}
+
+\begin{document}
+\sloppy
+
+%-------------------- HEADER --------------------
+\begin{center}
+{\LARGE \textbf{\color{mainblue} Yasir Hameed}} \\[2pt]
+Patna, Bihar, India \\[2pt]
++91 9523007323 \quad | \quad \href{mailto:yasirh9523@gmail.com}{\textcolor{mainblue}{yasirh9523@gmail.com}} \quad | \quad \href{https://www.linkedin.com/in/yasirh47/}{\textcolor{mainblue}{linkedin.com/in/yasirh47}} \quad | \quad \href{https://github.com/cyberpunk47}{\textcolor{mainblue}{github.com/cyberpunk47}}
+\end{center}
+
+%-------------------- EDUCATION --------------------
+\section*{EDUCATION}
+\noindent\textbf{\color{mainblue}Lovely Professional University} \hfill Phagwara, Punjab \\
+B.Tech, Computer Science and Engineering; CGPA: \textbf{7.85} \hfill Jul 2023 -- Jul 2027 \\[2pt]
+\noindent\textbf{Coursework:} Data Structures, Algorithms, Operating Systems, DBMS, Computer Networks, Object-Oriented Programming, Distributed Systems
+
+%-------------------- EXPERIENCE --------------------
+\section*{EXPERIENCE}
+
+\noindent\textbf{\color{mainblue}BizoGreat} | \textit{Software Engineer Intern (Backend / Full Stack)} \hfill Nov 2025 -- Feb 2026
+\begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=1pt, parsep=0pt, partopsep=0pt, label={\textbullet}]
+    \item Built Express.js REST APIs over a normalized PostgreSQL schema for core ERP workflows, secured with JWT authentication and role-based access control.
+    \item Cut API response latency by $\sim$40\% on high-traffic endpoints by rewriting N+1 query patterns and adding targeted composite indexes.
+    \item Owned the full SDLC of a React.js operations dashboard, replacing manual spreadsheet workflows with a single self-service data view for internal stakeholders.
+    \item Delivered in two-week Agile sprints with Git branching, pull-request review and CI checks across a 5-engineer team.
+\end{itemize}
+
+%-------------------- PROJECTS --------------------
+\section*{PROJECTS}
+
+\noindent\textbf{\color{mainblue}Hospital Management System} | \textit{Java 21, Spring Boot 3.5, PostgreSQL 17, Kafka, Docker, AWS EC2, k6} | \href{https://github.com/cyberpunk47/HMS}{\textit{GitHub}} \hfill Feb 2026 -- Sep 2026
+\begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=1pt, parsep=0pt, partopsep=0pt, label={\textbullet}]
+    \item Architected 6 Spring Boot microservices behind a Spring Cloud API Gateway with Eureka discovery, JWT token filtering, Feign service-to-service calls and database-per-service PostgreSQL; 9 containers orchestrated with Docker Compose on AWS EC2.
+    \item Sustained \textbf{166 req/s for 10 minutes --- 100,000 requests, 0 errors, p95 20.6 ms / p99 64.8 ms} --- and a peak of \textbf{628 req/s} (377,165 requests, 0 errors) on a single 2-vCPU EC2 instance, load-tested by k6 from a dedicated generator EC2 with guard rails that flag generator-limited runs.
+    \item Diagnosed a Kafka container healthcheck that forked a JVM every 10 s by correlating per-container CPU with request tails; replacing it with a TCP probe cut \textbf{p99 latency 555 ms $\rightarrow$ 65 ms (8.5$\times$)} and dropped requests from 203 to 3.
+    \item Eliminated double-booking with a 15-minute slot rule enforced by PostgreSQL advisory transaction locks: 200 concurrent booking attempts on one slot committed exactly 10 and rejected 190 cleanly, with zero conflicts.
+    \item Hardened the gateway with fail-closed, relationship-aware authorization (role plus doctor--patient relationship checked per request, identity headers stripped and re-issued), verified by a 21-case negative-authorization suite passing 21/21.
+    \item Instrumented HikariCP, Spring Actuator and \texttt{pg\_stat\_activity} telemetry to prove pool saturation (10/10 connections held, 7 threads queued) while the database sat idle, isolating open-session-in-view as the concurrency ceiling rather than DB throughput.
+\end{itemize}
+
+\noindent\textbf{\color{mainblue}SwayPay --- Payment and Ledger Engine} | \textit{Spring Boot, PostgreSQL, Redis, React.js} | \href{https://github.com/cyberpunk47/SwayPay}{\textit{GitHub}} \hfill Jul 2026 -- Present
+\begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=1pt, parsep=0pt, partopsep=0pt, label={\textbullet}]
+    \item Modeled a double-entry ledger (Accounts, Transactions, LedgerEntries) in Spring Boot over PostgreSQL, exposed through 5 JWT-secured, role-scoped REST endpoints.
+    \item Enforced request-level idempotency with Redis \texttt{SETNX}, guaranteeing exactly-once processing of duplicate and retried payment requests.
+    \item Serialized concurrent transfers with \texttt{SELECT FOR UPDATE} pessimistic locks on both accounts inside \texttt{@Transactional} boundaries with rollback-triggering exceptions, eliminating partial writes.
+\end{itemize}
+
+%-------------------- SKILLS --------------------
+\section*{TECHNICAL SKILLS}
+\noindent\textbf{\color{mainblue}Languages:} Java, C++, SQL, JavaScript, TypeScript \\[2pt]
+\noindent\textbf{\color{mainblue}Backend:} Spring Boot, Spring Cloud Gateway, REST APIs, Microservices, Eureka, Feign, JWT, Spring Security, Node.js, Express.js \\[2pt]
+\noindent\textbf{\color{mainblue}Databases:} PostgreSQL, MySQL, Redis, MongoDB, Schema Design, Query Optimization, Indexing, Transactions, Locking \\[2pt]
+\noindent\textbf{\color{mainblue}Systems:} Data Structures, Algorithms, OOP, Distributed Systems, Concurrency, Apache Kafka, Event-Driven Architecture, Fault Isolation, Scalability \\[2pt]
+\noindent\textbf{\color{mainblue}Cloud \& Tooling:} AWS (EC2, VPC, Security Groups, Elastic IP, EBS), Docker, Docker Compose, Kubernetes, Terraform, Linux, Git, k6 Load Testing, Spring Actuator, Performance Profiling, Postman \\[2pt]
+\noindent\textbf{\color{mainblue}Frontend:} React.js, Redux, Next.js, TanStack Query
+
+%-------------------- ACHIEVEMENTS --------------------
+\section*{ACHIEVEMENTS \& CERTIFICATIONS}
+\noindent Codeforces Rating 1251 (Pupil); 200+ LeetCode problems across Arrays, Trees, Graphs, DP and Greedy \hfill Since Aug 2025 \\[2pt]
+\noindent Qualified Round 1, Google The Big Code 2026 \hfill Mar 2026 \\[2pt]
+\noindent Ethical Hacking, \href{https://archive.nptel.ac.in/content/noc/NOC25/SEM2/Ecertificates/106/noc25-cs142/Course/NPTEL25CS142S95870044610447804.pdf}{\textit{\color{mainblue}NPTEL}} \quad | \quad Front-End Development, \href{https://www.coursera.org/account/accomplishments/verify/D8XEU0AX5Y9U}{\textit{\color{mainblue}IBM}} \hfill Nov 2025
+
+\end{document}
