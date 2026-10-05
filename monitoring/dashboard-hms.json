@@ -1,682 +1,738 @@
 {
-  "uid": "hms-load-demo",
-  "title": "HMS \u2014 Load and Autoscaling",
-  "tags": [
-    "hms",
-    "demo"
-  ],
-  "timezone": "browser",
-  "editable": true,
-  "schemaVersion": 39,
-  "version": 1,
-  "refresh": "5s",
-  "time": {
-    "from": "now-15m",
-    "to": "now"
+ "uid": "hms-load-demo",
+ "title": "HMS — Load and Autoscaling",
+ "tags": [
+  "hms",
+  "demo"
+ ],
+ "timezone": "browser",
+ "editable": true,
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "5s",
+ "time": {
+  "from": "now-15m",
+  "to": "now"
+ },
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "Right now",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "collapsed": false,
+   "panels": []
   },
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
-  },
-  "panels": [
+  {
+   "type": "stat",
+   "title": "Requests / second",
+   "description": "Measured at the public entry point (the ingress controller), so it counts what actually arrived - not what the application thinks it served. One decimal, because clicking through the app by hand produces well under 1 req/s and whole numbers rendered that as a flat 0.",
+   "datasource": null,
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 0,
+    "y": 1
+   },
+   "targets": [
     {
-      "type": "row",
-      "title": "Right now",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Requests / second",
-      "description": "Measured at the public entry point (the ingress controller), so it counts what actually arrived \u2014 not what the application thinks it served.",
-      "datasource": null,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
-          "legendFormat": "req/s"
-        }
-      ],
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "textMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#2a78d6"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Gateway pods",
-      "description": "How many gateway pods are ready. KEDA adds one for every 100 req/s.",
-      "datasource": null,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "kube_deployment_status_replicas_ready{namespace=\"hms\", deployment=\"gateway\"}",
-          "legendFormat": "pods"
-        }
-      ],
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "textMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#eb6834"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "title": "p95 latency (k6)",
-      "description": "95th percentile as the load generator experienced it \u2014 one request in twenty was slower than this.",
-      "datasource": null,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(k6_http_req_duration_p95)",
-          "legendFormat": "p95"
-        }
-      ],
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "textMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "decimals": 1,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#1a7f37",
-                "value": null
-              },
-              {
-                "color": "#b86e00",
-                "value": 200
-              },
-              {
-                "color": "#c1292e",
-                "value": 1000
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Server errors / second",
-      "description": "5xx responses at the ingress. This should stay at zero for the whole test \u2014 that is the claim worth making.",
-      "datasource": null,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 18,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"hms\", status=~\"5..\"}[1m]))",
-          "legendFormat": "5xx/s"
-        }
-      ],
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "textMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 2,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#1a7f37",
-                "value": null
-              },
-              {
-                "color": "#c1292e",
-                "value": 0.5
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "row",
-      "title": "The demo: traffic goes up, pods follow",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 6
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "1 \u00b7 Requests per second arriving at the public URL",
-      "description": "Deliberately a separate panel from the pod count below. Two measures with different scales never share one y-axis \u2014 stacked panels on the same time range show the relationship without distorting either line.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
-          "legendFormat": "requests/s"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "min": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#2a78d6"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisLabel": "requests / second"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "2 \u00b7 Gateway pods, decided by KEDA (1 pod per 100 req/s)",
-      "description": "Same time axis as the panel above. When the line above crosses a multiple of 100, this one steps up about a minute later \u2014 KEDA polls every 15 s and new pods need time to pass their readiness probe.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 15
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "kube_deployment_status_replicas_ready{namespace=\"hms\", deployment=\"gateway\"}",
-          "legendFormat": "ready pods"
-        },
-        {
-          "refId": "B",
-          "expr": "kube_deployment_spec_replicas{namespace=\"hms\", deployment=\"gateway\"}",
-          "legendFormat": "pods asked for"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "decimals": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "axisLabel": "pods"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ready pods"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#eb6834"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "pods asked for"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#4a3aa7"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    8,
-                    6
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "3 \u00b7 Latency as the load generator measured it",
-      "description": "If the autoscaling is doing its job, these lines stay roughly flat while the traffic above climbs. A rising p99 with a flat p50 means some requests are queueing.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 23
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(k6_http_req_duration_avg)",
-          "legendFormat": "average"
-        },
-        {
-          "refId": "B",
-          "expr": "max(k6_http_req_duration_p95)",
-          "legendFormat": "p95"
-        },
-        {
-          "refId": "C",
-          "expr": "max(k6_http_req_duration_p99)",
-          "legendFormat": "p99"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "axisLabel": "milliseconds"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "average"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#2a78d6"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p95"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#eb6834"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p99"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#4a3aa7"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "4 \u00b7 CPU used by each gateway pod",
-      "description": "Each line is one pod. New lines appearing is the scale-out event seen from the other side; the existing lines dropping is the load being shared.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 23
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"hms\", pod=~\"gateway-.*\"}[2m]))",
-          "legendFormat": "{{pod}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "decimals": 2,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "axisLabel": "CPU cores"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "row",
-      "title": "Where the work actually went",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 31
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "5 \u00b7 Requests per second, by service",
-      "description": "Which microservice is carrying the load. Read together with the CPU panel, this is how you find the next bottleneck.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (service) (rate(http_server_requests_seconds_count{namespace=\"hms\"}[1m]))",
-          "legendFormat": "{{service}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "axisLabel": "requests / second"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "6 \u00b7 Database connections in use (HikariCP)",
-      "description": "The pool holds 10 per service. If 'in use' sits at 10 while 'threads waiting' is above zero, the limit is the pool, not the database \u2014 that is exactly what the earlier EC2 benchmark found.",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (service) (hikaricp_connections_active{namespace=\"hms\"})",
-          "legendFormat": "{{service}} in use"
-        },
-        {
-          "refId": "B",
-          "expr": "sum by (service) (hikaricp_connections_pending{namespace=\"hms\"})",
-          "legendFormat": "{{service}} waiting"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "decimals": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "axisLabel": "connections"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*waiting"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#c1292e"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    8,
-                    6
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      }
+     "refId": "A",
+     "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
+     "legendFormat": "req/s"
     }
-  ]
+   ],
+   "options": {
+    "graphMode": "area",
+    "colorMode": "value",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "decimals": 1,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#2a78d6"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Gateway pods",
+   "description": "How many gateway pods are ready. KEDA adds one for every 100 req/s.",
+   "datasource": null,
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 6,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "kube_deployment_status_replicas_ready{namespace=\"hms\", deployment=\"gateway\"}",
+     "legendFormat": "pods"
+    }
+   ],
+   "options": {
+    "graphMode": "area",
+    "colorMode": "value",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#eb6834"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "p95 latency (k6)",
+   "description": "95th percentile as the load generator experienced it — one request in twenty was slower than this.",
+   "datasource": null,
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 12,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max(k6_http_req_duration_p95)",
+     "legendFormat": "p95"
+    }
+   ],
+   "options": {
+    "graphMode": "area",
+    "colorMode": "value",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "decimals": 1,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#1a7f37",
+        "value": null
+       },
+       {
+        "color": "#b86e00",
+        "value": 200
+       },
+       {
+        "color": "#c1292e",
+        "value": 1000
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Server errors / second",
+   "description": "5xx responses at the ingress. This should stay at zero for the whole test — that is the claim worth making.",
+   "datasource": null,
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 18,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"hms\", status=~\"5..\"}[1m]))",
+     "legendFormat": "5xx/s"
+    }
+   ],
+   "options": {
+    "graphMode": "area",
+    "colorMode": "value",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "decimals": 2,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#1a7f37",
+        "value": null
+       },
+       {
+        "color": "#c1292e",
+        "value": 0.5
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "row",
+   "title": "The demo: traffic goes up, pods follow",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "collapsed": false,
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "1 · Requests per second arriving at the public URL",
+   "description": "Deliberately a separate panel from the pod count below. Two measures with different scales never share one y-axis — stacked panels on the same time range show the relationship without distorting either line.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
+     "legendFormat": "requests/s"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "min": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#2a78d6"
+     },
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 12,
+      "showPoints": "never",
+      "spanNulls": true,
+      "axisLabel": "requests / second"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "2 · Gateway pods, decided by KEDA (1 pod per 100 req/s)",
+   "description": "Same time axis as the panel above. When the line above crosses a multiple of 100, this one steps up about a minute later — KEDA polls every 15 s and new pods need time to pass their readiness probe.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 15
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "kube_deployment_status_replicas_ready{namespace=\"hms\", deployment=\"gateway\"}",
+     "legendFormat": "ready pods"
+    },
+    {
+     "refId": "B",
+     "expr": "kube_deployment_spec_replicas{namespace=\"hms\", deployment=\"gateway\"}",
+     "legendFormat": "pods asked for"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "decimals": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "axisLabel": "pods"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "ready pods"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#eb6834"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "pods asked for"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4a3aa7"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          8,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "3 · Latency as the load generator measured it",
+   "description": "If the autoscaling is doing its job, these lines stay roughly flat while the traffic above climbs. A rising p99 with a flat p50 means some requests are queueing.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 23
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max(k6_http_req_duration_avg)",
+     "legendFormat": "average"
+    },
+    {
+     "refId": "B",
+     "expr": "max(k6_http_req_duration_p95)",
+     "legendFormat": "p95"
+    },
+    {
+     "refId": "C",
+     "expr": "max(k6_http_req_duration_p99)",
+     "legendFormat": "p99"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "milliseconds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "average"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#2a78d6"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "p95"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#eb6834"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "p99"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4a3aa7"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "4 · CPU used by each gateway pod",
+   "description": "Each line is one pod. New lines appearing is the scale-out event seen from the other side; the existing lines dropping is the load being shared.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 23
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"hms\", pod=~\"gateway-.*\"}[2m]))",
+     "legendFormat": "{{pod}}"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "decimals": 2,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "CPU cores"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "row",
+   "title": "Where the work actually went",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 31
+   },
+   "collapsed": false,
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "5 · Requests per second, by service",
+   "description": "Which microservice is carrying the load. Read together with the CPU panel, this is how you find the next bottleneck.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (service) (rate(http_server_requests_seconds_count{namespace=\"hms\"}[1m]))",
+     "legendFormat": "{{service}}"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "requests / second"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "6 · Database connections in use (HikariCP)",
+   "description": "The pool holds 10 per service. If 'in use' sits at 10 while 'threads waiting' is above zero, the limit is the pool, not the database — that is exactly what the earlier EC2 benchmark found.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (service) (hikaricp_connections_active{namespace=\"hms\"})",
+     "legendFormat": "{{service}} in use"
+    },
+    {
+     "refId": "B",
+     "expr": "sum by (service) (hikaricp_connections_pending{namespace=\"hms\"})",
+     "legendFormat": "{{service}} waiting"
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "decimals": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "connections"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*waiting"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#c1292e"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          8,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "type": "bargauge",
+   "title": "7 · Requests counted in the last 5 minutes, by service",
+   "description": "A COUNT, not a rate - this is the panel to watch while clicking through the app. Panels 1 and 5 divide by time, so 40 clicks spread over a minute read as 0.7 req/s and sit invisibly on an axis scaled to a 565 req/s load test. Counting instead of averaging puts hand-driven traffic and load-test traffic on a scale you can read. Static pages (HTML/JS/CSS) are absent here: the frontend is a plain nginx pod with no actuator, so only API calls are counted.",
+   "datasource": null,
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 40
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (service) (increase(http_server_requests_seconds_count{namespace=\"hms\"}[5m]))",
+     "legendFormat": "{{service}}",
+     "instant": true
+    }
+   ],
+   "options": {
+    "displayMode": "basic",
+    "orientation": "horizontal",
+    "showUnfilled": true,
+    "valueMode": "text",
+    "minVizWidth": 8,
+    "minVizHeight": 16,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "min": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#2a78d6"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#2a78d6",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  }
+ ]
 }
