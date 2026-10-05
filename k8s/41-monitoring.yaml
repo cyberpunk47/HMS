@@ -2,9 +2,15 @@
 # Tells Prometheus where to find the application metrics.
 #
 # A ServiceMonitor is a small object that says "scrape this Service, on this
-# port, at this path, every N seconds". Spring Boot already publishes the data at
-# /actuator/prometheus (micrometer-registry-prometheus is in every pom and
-# `prometheus` is in management.endpoints.web.exposure.include).
+# port, at this path, every N seconds".
+#
+# Spring Boot does not serve /actuator/prometheus out of the box. Two things had
+# to be added to each of the six services for this file to work, and both are in
+# the repo now:
+#   1. io.micrometer:micrometer-registry-prometheus in pom.xml  (creates the endpoint)
+#   2. prometheus in management.endpoints.web.exposure.include  (publishes it)
+# GatewayMS and NotificationMS also needed spring-boot-starter-actuator itself;
+# without it /actuator/health returned 404 and their readiness probes never passed.
 #
 # One ServiceMonitor covers all six services because they share the label
 # pattern app=<name> and all answer on /actuator/prometheus.

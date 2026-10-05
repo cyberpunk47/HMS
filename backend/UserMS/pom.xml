@@ -121,6 +121,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+		<!-- Publishes /actuator/prometheus, which the ServiceMonitor in
+		     k8s/41-monitoring.yaml scrapes. Version comes from the Spring Boot parent. -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
