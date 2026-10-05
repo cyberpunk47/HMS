@@ -553,7 +553,7 @@
   {
    "type": "timeseries",
    "title": "5 · Requests per second, by service",
-   "description": "Which microservice is carrying the load. Read together with the CPU panel, this is how you find the next bottleneck.",
+   "description": "Which microservice is carrying the load. Read together with the CPU panel, this is how you find the next bottleneck. Excludes /actuator (health probes and metric scrapes).",
    "datasource": null,
    "gridPos": {
     "h": 8,
@@ -564,7 +564,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (service) (rate(http_server_requests_seconds_count{namespace=\"hms\"}[1m]))",
+     "expr": "sum by (service) (rate(http_server_requests_seconds_count{namespace=\"hms\", uri!~\"/actuator.*\"}[1m]))",
      "legendFormat": "{{service}}"
     }
    ],
@@ -681,7 +681,7 @@
   {
    "type": "bargauge",
    "title": "7 · Requests counted in the last 5 minutes, by service",
-   "description": "A COUNT, not a rate - this is the panel to watch while clicking through the app. Panels 1 and 5 divide by time, so 40 clicks spread over a minute read as 0.7 req/s and sit invisibly on an axis scaled to a 565 req/s load test. Counting instead of averaging puts hand-driven traffic and load-test traffic on a scale you can read. Static pages (HTML/JS/CSS) are absent here: the frontend is a plain nginx pod with no actuator, so only API calls are counted.",
+   "description": "A COUNT, not a rate - this is the panel to watch while clicking through the app. Panels 1 and 5 divide by time, so 40 clicks spread over a minute read as 0.7 req/s and sit invisibly on an axis scaled to a 565 req/s load test. Counting instead of averaging puts hand-driven traffic and load-test traffic on a scale you can read. Static pages (HTML/JS/CSS) are absent here: the frontend is a plain nginx pod with no actuator, so only API calls are counted. Actuator traffic is excluded: Kubernetes probes /actuator/health every 10s and Prometheus scrapes /actuator/prometheus every 15s, which is ~65 requests per pod per 5 minutes of pure plumbing. Counting it would make an idle service look busy.",
    "datasource": null,
    "gridPos": {
     "h": 8,
@@ -692,7 +692,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (service) (increase(http_server_requests_seconds_count{namespace=\"hms\"}[5m]))",
+     "expr": "sum by (service) (increase(http_server_requests_seconds_count{namespace=\"hms\", uri!~\"/actuator.*\"}[5m]))",
      "legendFormat": "{{service}}",
      "instant": true
     }

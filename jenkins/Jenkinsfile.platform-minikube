@@ -54,8 +54,35 @@ pipeline {
       steps {
         sh '''
           set -e
-          # systemd starts minikube at boot; this is the safety net if it was stopped.
-          minikube status >/dev/null 2>&1 || minikube start --driver=docker --cpus=3 --memory=10240 --addons=metrics-server
+
+          # minikube.service starts the cluster at boot and takes a few minutes
+          # (it pulls a ~400MB base image first). Launching a SECOND minikube
+          # start while that one is still running corrupts the profile: the
+          # config file exists but no container does, and every later start then
+          # dies with "DRV_CP_ENDPOINT: failed to lookup ip for \"\"".
+          # So wait for the boot-time service instead of racing it.
+          echo "waiting for the boot-time minikube service (up to 10 minutes)"
+          for i in $(seq 1 60); do
+            minikube status >/dev/null 2>&1 && { echo "cluster is up after $((i * 10))s"; break; }
+            sleep 10
+          done
+
+          if ! minikube status >/dev/null 2>&1; then
+            # Take the flags from the systemd unit rather than repeating them.
+            # They were hardcoded here once and drifted out of step with the
+            # unit; minikube then refused to start because cpus/memory did not
+            # match the existing profile, and the fallback also omitted
+            # --container-runtime=docker, which silently reintroduces the
+            # containerd problem where kubelet cannot see locally built images.
+            FLAGS=$(sed -n 's|^ExecStart=/usr/local/bin/minikube start ||p' /etc/systemd/system/minikube.service)
+            echo "service did not come up; starting manually with: $FLAGS"
+            minikube start $FLAGS || {
+              echo "profile is in a broken state - recreating it from scratch"
+              minikube delete --profile=minikube || true
+              minikube start $FLAGS
+            }
+          fi
+
           NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
           # Every Deployment asks for nodeSelector role=app; on one node we label it.
           kubectl label node "$NODE" role=app --overwrite
