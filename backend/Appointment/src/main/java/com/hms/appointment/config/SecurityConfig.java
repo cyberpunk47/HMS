@@ -18,6 +18,22 @@ public class SecurityConfig {
         return uri != null && (uri.startsWith("/v3/api-docs") || uri.startsWith("/swagger-ui"));
     }
 
+    /**
+     * The only two endpoints this service answers without the gateway's internal
+     * secret: the health check Kubernetes uses for its readiness and liveness
+     * probes, and the metrics endpoint Prometheus scrapes. Neither returns
+     * business data. The Service is ClusterIP, so neither is reachable from
+     * outside the cluster; every other path still falls through to denyAll().
+     */
+    private static boolean isObservabilityPath(String uri) {
+        if (uri == null) {
+            return false;
+        }
+        return uri.equals("/actuator/health")
+                || uri.startsWith("/actuator/health/")
+                || uri.equals("/actuator/prometheus");
+    }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -27,6 +43,8 @@ public class SecurityConfig {
                         // secret ONLY when SWAGGER_ENABLED=true (default false). Remove after benchmarking.
                         .requestMatchers(request -> swaggerEnabled && isSwaggerPath(request.getRequestURI()))
                         .permitAll()
+                        .requestMatchers(request -> isObservabilityPath(request.getRequestURI()))
+                                .permitAll()
                         .requestMatchers(request ->
                                 "SECRET".equals(request.getHeader("X-Secret-Key")))
                         .permitAll()
