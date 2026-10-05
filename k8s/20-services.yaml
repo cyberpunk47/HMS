@@ -57,8 +57,8 @@ spec:
           # The gateway is the pod that scales. Measured: ~1540 req/s per core,
           # so one pod with a 1-core request handles ~1200 req/s at a safe 70%.
           resources:
-            requests: { cpu: "1000m", memory: "512Mi" }
-            limits: { cpu: "2000m", memory: "1Gi" }
+            requests: { cpu: "150m", memory: "384Mi" }
+            limits: { cpu: "800m", memory: "768Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 9000 }
             initialDelaySeconds: 40
@@ -107,8 +107,8 @@ spec:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
           ports: [{ containerPort: 8082 }]
           resources:
-            requests: { cpu: "300m", memory: "512Mi" }
-            limits: { cpu: "1000m", memory: "1Gi" }
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "400m", memory: "640Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 8082 }
             initialDelaySeconds: 40
@@ -150,8 +150,8 @@ spec:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
           ports: [{ containerPort: 9100 }]
           resources:
-            requests: { cpu: "300m", memory: "512Mi" }
-            limits: { cpu: "1000m", memory: "1Gi" }
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "400m", memory: "640Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 9100 }
             initialDelaySeconds: 40
@@ -194,8 +194,8 @@ spec:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
           ports: [{ containerPort: 9200 }]
           resources:
-            requests: { cpu: "500m", memory: "640Mi" }
-            limits: { cpu: "1500m", memory: "1Gi" }
+            requests: { cpu: "150m", memory: "448Mi" }
+            limits: { cpu: "600m", memory: "768Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 9200 }
             initialDelaySeconds: 40
@@ -237,8 +237,8 @@ spec:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
           ports: [{ containerPort: 9300 }]
           resources:
-            requests: { cpu: "250m", memory: "512Mi" }
-            limits: { cpu: "1000m", memory: "1Gi" }
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "400m", memory: "640Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 9300 }
             initialDelaySeconds: 40
@@ -279,8 +279,8 @@ spec:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }
           ports: [{ containerPort: 9101 }]
           resources:
-            requests: { cpu: "250m", memory: "512Mi" }
-            limits: { cpu: "1000m", memory: "1Gi" }
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "400m", memory: "640Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 9101 }
             initialDelaySeconds: 40

@@ -1,0 +1,35 @@
+# hms-monitor.sh on the HMS host during the 628 req/s peak run (94 samples, 5 s interval).
+# This is the most informative host capture of the day.
+
+HOST CPU avg 58.5%  peak 99.9%  samples 94  (t3.large, 2 vCPU)
+min available memory 3639 MB
+
+container               avg CPU   peak CPU
+hms-gateway              40.7%     91.5%     <-- heaviest single component
+hms-appointment-ms       24.9%     79.3%
+hms-profile-ms           17.0%     67.5%
+hms-postgres              8.9%     22.8%     <-- database is NOT the bottleneck
+hms-pharmacy-ms           3.3%     26.3%
+hms-notification-ms       2.5%     19.6%
+hms-kafka                 2.4%     49.4%
+hms-eureka-server         1.3%      5.7%
+hms-user-ms               0.1%      0.6%
+
+postgres hms_appointment_db   peak connections 10 (active 1)
+postgres hms_profile_db       peak connections 10 (active 1)
+postgres hms_pharmacy_db      peak connections 10 (active )
+postgres hms_notification_db  peak connections 10 (active )
+postgres hms_user_db          peak connections 10 (active )
+
+hikari hms-appointment-ms   peak active 10.0 / max 10.0, peak pending 7.0
+hikari hms-profile-ms       peak active  9.0 / max 10.0, peak pending 9.0
+hikari hms-pharmacy-ms      peak active  5.0 / max 10.0, peak pending
+hikari hms-user-ms          peak active      / max 10.0, peak pending
+
+# Reading of this capture:
+#  - ~1.17 core busy at 628 req/s => roughly 1.9 ms of CPU per request.
+#  - HikariCP shows 10/10 connections held with 7 threads queued on AppointmentMS and 9
+#    queued on ProfileMS, while PostgreSQL reports only 1 active query and 8.9% CPU.
+#    Connections were held, not working: the signature of Spring's open-in-view default,
+#    which keeps a connection for the whole request instead of just the query. That caps
+#    concurrency at pool size regardless of database load, and is the next ceiling to remove.

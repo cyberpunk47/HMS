@@ -1,0 +1,40 @@
+# PHASE=step100k BASE_URL=http://10.0.1.86:9000 ./run.sh api-load.js
+# AFTER replacing the Kafka container healthcheck (which forked a JVM every 10 s) with a TCP
+# port probe. Same request rate as the run above, twice the duration.
+#   p95  151.0 ms -> 20.6 ms
+#   p99  555.3 ms -> 64.8 ms   (8.5x)
+#   dropped 203 -> 3, peak VUs needed 95 -> 26
+# No application code was changed between the two runs.
+
+==================== HMS BENCHMARK: api-load / step100k ====================
+  RUN ID                     20260920-152559
+  TARGET RPS (iter/s)        166.67
+  ACHIEVED ITER/S            166.66
+  TOTAL REQUESTS             99998
+  TOTAL ITERATIONS           99998
+  DROPPED ITERATIONS         3
+  ERROR RATE                 0.000 %
+  BUSINESS REJECTIONS        0
+  P50 / P90 (ms)             3.6 / 11.48
+  P95 / P99 (ms)             20.62 / 64.79
+  MAX (ms)                   487.32
+  PEAK VUs (active / alloc)  26 / 36
+  DATA RECEIVED / SENT       82.8 MB / 50.2 MB
+  ---- per endpoint ----------------------------------------------------------
+  endpoint                         count     ok%      p50      p95      p99      max
+  appointments_by_doctor            8000   100.0     5.38    42.25   108.84   487.32
+  doctor_dropdowns                  5000   100.0     3.43    13.48    35.35   198.46
+  appointment_reasons_by_doctor     5000   100.0     3.36    20.22    76.97   296.04
+  appointment_booked_slots          5000   100.0     3.78     24.7    93.88   248.82
+  appointment_count_by_patient      8000   100.0     3.47    26.04    81.86   352.23
+  prescriptions_by_patient          7000   100.0     3.62    20.91   103.73   358.88
+  patient_profile_get              15000   100.0     3.32    11.37    29.64   151.34
+  doctor_profile_get               10000   100.0      3.2    11.01    30.89   161.43
+  pharmacy_medicine_getall          4998   100.0     4.27    17.61    41.02   185.06
+  notifications_patient             8000   100.0     3.52    18.23    50.37   248.25
+  appointments_by_patient          14000   100.0     3.62     22.3    63.55   262.04
+  records_by_patient               10000   100.0     3.66    23.47    93.35   401.94
+  THRESHOLDS FAILED          dropped_iterations   (3 of 99,998 = 0.003%, VU ramp-up artifact)
+==========================================================================================
+GENERATOR  samples=297  k6 cores used: peak 0.74 avg 0.16  |  k6 RSS peak 130 MB  |  host CPU peak 35% avg 7%
+VERDICT: generator had headroom (host CPU peak < 85%, RSS under guard).

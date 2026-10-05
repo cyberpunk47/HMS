@@ -1,0 +1,40 @@
+###############################################################################
+# ingress-nginx on minikube.
+#
+# Difference from the AWS file: no cloud load balancer exists here, so the
+# controller is published on a fixed NodePort and reached at
+# http://$(minikube ip):30080 . Everything else — especially metrics.enabled,
+# which produces the nginx_ingress_controller_requests counter KEDA scales on —
+# is the same.
+###############################################################################
+controller:
+  replicaCount: 1
+  nodeSelector:
+    role: app
+
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: kube-prometheus-stack
+
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "700m", memory: "320Mi" }
+
+  config:
+    worker-processes: "2"
+    keep-alive-requests: "10000"
+    upstream-keepalive-connections: "256"
+
+  # A single-node cluster has no second node to spread across, so the default
+  # anti-affinity rule would leave the pod Pending forever.
+  admissionWebhooks:
+    enabled: false

@@ -1,0 +1,194 @@
+#cloud-config
+# Runs once, automatically, the first time this machine boots.
+#
+# Installs Docker, minikube, kubectl, helm, Jenkins, Node and k6, then starts a
+# single-node Kubernetes cluster owned by the jenkins user, and forwards two host
+# ports into it so the application and Grafana are reachable from the internet.
+#
+# Terraform renders this file, so a dollar-brace pair is read as a Terraform
+# variable. Only these four are variables: admin_password, repo_url,
+# minikube_cpus, minikube_memory. Shell variables are written as two dollars.
+
+package_update: true
+
+write_files:
+  # ---------------------------------------------------------------- Jenkins
+  - path: /etc/jenkins-casc/jenkins.yaml
+    permissions: "0640"
+    content: |
+      jenkins:
+        systemMessage: "HMS DevOps controller - Terraform created this machine, JCasC configured Jenkins, Jenkins runs everything else"
+        numExecutors: 2
+        securityRealm:
+          local:
+            allowsSignup: false
+            users:
+              - id: "admin"
+                password: "${admin_password}"
+        authorizationStrategy:
+          loggedInUsersCanDoAnything:
+            allowAnonymousRead: false
+      unclassified:
+        location:
+          adminAddress: "admin@hms.local"
+      jobs:
+        - script: >
+            pipelineJob('hms-platform') {
+              description('Starts the cluster, installs Prometheus/Grafana/KEDA, builds the 8 images, deploys HMS, seeds data and verifies every endpoint. Run this first.')
+              definition {
+                cpsScm {
+                  scm {
+                    git {
+                      remote { url('${repo_url}') }
+                      branch('*/main')
+                    }
+                  }
+                  scriptPath('jenkins/Jenkinsfile.platform-minikube')
+                }
+              }
+            }
+        - script: >
+            pipelineJob('hms-loadtest') {
+              description('Fires traffic with k6 and shows KEDA adding gateway pods. Run this during the demo.')
+              definition {
+                cpsScm {
+                  scm {
+                    git {
+                      remote { url('${repo_url}') }
+                      branch('*/main')
+                    }
+                  }
+                  scriptPath('jenkins/Jenkinsfile.loadtest-minikube')
+                }
+              }
+            }
+
+  - path: /etc/jenkins-casc/plugins.txt
+    content: |
+      configuration-as-code
+      job-dsl
+      workflow-aggregator
+      git
+      credentials-binding
+      pipeline-stage-view
+      timestamper
+      ws-cleanup
+      ansicolor
+
+  # ------------------------------------------------- minikube as a service
+  # Owned by the jenkins user so the pipelines can drive it without sudo.
+  - path: /etc/systemd/system/minikube.service
+    content: |
+      [Unit]
+      Description=minikube single-node Kubernetes cluster
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      User=jenkins
+      Environment=HOME=/var/lib/jenkins
+      Environment=MINIKUBE_IN_STYLE=false
+      Environment=CHANGE_MINIKUBE_NONE_USER=true
+      ExecStart=/usr/local/bin/minikube start --driver=docker --cpus=${minikube_cpus} --memory=${minikube_memory} --addons=metrics-server
+      ExecStop=/usr/local/bin/minikube stop
+      TimeoutStartSec=600
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # ------------------------------------------------------ port forwarding
+  # minikube with the docker driver lives on its own bridge network, so its
+  # NodePorts are not on the host's public interface. socat bridges the two:
+  #   host:30080 -> cluster ingress   host:30030 -> Grafana
+  # (The load test does NOT go through this - k6 runs on this machine and talks
+  #  to the cluster IP directly, so the proxy never becomes the bottleneck.)
+  - path: /usr/local/bin/hms-portforward.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -u
+      for i in $$(seq 1 60); do
+        IP=$$(su - jenkins -c '/usr/local/bin/minikube ip' 2>/dev/null)
+        [ -n "$$IP" ] && break
+        sleep 10
+      done
+      [ -n "$$IP" ] || { echo "minikube is not up yet"; exit 1; }
+      echo "forwarding host ports to $$IP"
+      socat TCP-LISTEN:30080,fork,reuseaddr TCP:$$IP:30080 &
+      socat TCP-LISTEN:30030,fork,reuseaddr TCP:$$IP:30030 &
+      wait
+
+  - path: /etc/systemd/system/hms-portforward.service
+    content: |
+      [Unit]
+      Description=Publish the minikube NodePorts on the host interface
+      After=minikube.service
+      Requires=minikube.service
+
+      [Service]
+      ExecStart=/usr/local/bin/hms-portforward.sh
+      Restart=always
+      RestartSec=15
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # ---------- base packages ----------
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 update -y
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl gnupg unzip git jq socat conntrack fontconfig openjdk-21-jre docker.io
+  - systemctl enable --now docker
+
+  # ---------- Jenkins ----------
+  # The signing key is versioned by year and Jenkins rotates it, so a stale URL
+  # 404s, the keyring is empty, apt calls the repo unsigned, and the install
+  # fails quietly. The guard below turns that into a loud stop.
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key -o /etc/apt/keyrings/jenkins-keyring.asc
+  - 'test -s /etc/apt/keyrings/jenkins-keyring.asc || { echo "FATAL - jenkins signing key download failed; check the current key filename at jenkins.io/doc/book/installing/linux"; exit 1; }'
+  - echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" > /etc/apt/sources.list.d/jenkins.list
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 update -y
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y jenkins
+  - 'test -f /usr/share/java/jenkins.war || { echo "FATAL - jenkins package did not install"; exit 1; }'
+
+  # ---------- kubectl / helm / minikube ----------
+  - curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
+  - chmod +x /usr/local/bin/kubectl
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 -o /tmp/get-helm.sh
+  - bash /tmp/get-helm.sh
+  - curl -fsSLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  - chmod +x /usr/local/bin/minikube
+  - 'test -x /usr/local/bin/minikube || { echo "FATAL - minikube download failed"; exit 1; }'
+
+  # ---------- k6 (pinned, so a repo change cannot break the build) ----------
+  - curl -fsSL https://github.com/grafana/k6/releases/download/v1.3.0/k6-v1.3.0-linux-amd64.tar.gz -o /tmp/k6.tgz
+  - tar xzf /tmp/k6.tgz -C /tmp
+  - install /tmp/k6-v1.3.0-linux-amd64/k6 /usr/local/bin/k6
+  - 'test -x /usr/local/bin/k6 || { echo "FATAL - k6 install failed"; exit 1; }'
+
+  # ---------- Node 20 (the seeding script runs on it) ----------
+  - curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/node.sh
+  - bash /tmp/node.sh
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y nodejs
+
+  # ---------- let Jenkins drive Docker and minikube ----------
+  - usermod -aG docker jenkins
+  - install -d -o jenkins -g jenkins /var/lib/jenkins/.kube /var/lib/jenkins/.minikube
+
+  # ---------- Jenkins plugins + config as code ----------
+  - curl -fsSL https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.13.2/jenkins-plugin-manager-2.13.2.jar -o /opt/jenkins-plugin-manager.jar
+  - java -jar /opt/jenkins-plugin-manager.jar --war /usr/share/java/jenkins.war --plugin-file /etc/jenkins-casc/plugins.txt --plugin-download-directory /var/lib/jenkins/plugins
+  - chown -R jenkins:jenkins /var/lib/jenkins/plugins /etc/jenkins-casc
+  - mkdir -p /etc/systemd/system/jenkins.service.d
+  - printf '[Service]\nEnvironment="JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Dcasc.jenkins.config=/etc/jenkins-casc/jenkins.yaml"\n' > /etc/systemd/system/jenkins.service.d/override.conf
+
+  # ---------- start everything ----------
+  - systemctl daemon-reload
+  - systemctl enable --now jenkins
+  - systemctl enable --now minikube
+  - systemctl enable --now hms-portforward
+  - 'su - jenkins -c "/usr/local/bin/kubectl get nodes" || echo "WARNING - minikube did not come up; check: journalctl -u minikube"'
+
+final_message: "cloud-init finished in $UPTIME seconds. Jenkins is ready ONLY if no FATAL line appears above."

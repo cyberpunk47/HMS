@@ -27,7 +27,7 @@ metadata:
   name: frontend
   namespace: hms
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels: { app: frontend }
   template:
@@ -40,8 +40,8 @@ spec:
           image: ${ECR_REGISTRY}/hms/frontend:${IMAGE_TAG}
           ports: [{ containerPort: 80 }]
           resources:
-            requests: { cpu: "100m", memory: "64Mi" }
-            limits: { cpu: "500m", memory: "256Mi" }
+            requests: { cpu: "50m", memory: "48Mi" }
+            limits: { cpu: "300m", memory: "192Mi" }
           readinessProbe:
             httpGet: { path: /healthz, port: 80 }
             initialDelaySeconds: 5

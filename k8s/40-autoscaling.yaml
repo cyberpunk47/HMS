@@ -3,11 +3,15 @@
 #
 # The gateway scales on REQUESTS PER SECOND, not on CPU. Two reasons:
 #
-#  1. It is the number you can defend. "One pod handles 1200 req/s" comes from a
-#     measurement: the gateway used 0.407 of a core while serving 628 req/s, i.e.
-#     ~1540 req/s per core, and 1200 is that at a safe 70%.
-#  2. It is deterministic on stage. 5000 req/s / 1200 = 5 pods, every time —
+#  1. It is the number you can defend. The gateway used 0.407 of a core while
+#     serving 628 req/s, i.e. ~1540 req/s per core. Each pod here requests 150m
+#     and is capped at 800m, so ~200 req/s per pod is the honest figure.
+#  2. It is deterministic on stage. 1000 req/s / 200 = 5 pods, every time —
 #     a CPU-based rule would scale at whatever moment CPU happens to cross 60%.
+#
+# The absolute numbers are small because the whole cluster is one 4-vCPU node:
+# the account's EC2 quota is 8 vCPU. The behaviour being demonstrated — traffic
+# rises, replicas follow, latency stays flat — is exactly the same at any size.
 #
 # KEDA (Kubernetes Event-Driven Autoscaler) reads that rate straight out of
 # Prometheus. The metric comes from the ingress controller, not the application,
@@ -25,7 +29,7 @@ spec:
   scaleTargetRef:
     name: gateway
   minReplicaCount: 1
-  maxReplicaCount: 8
+  maxReplicaCount: 6
   pollingInterval: 15 # how often KEDA asks Prometheus (seconds)
   cooldownPeriod: 60 # wait this long after load stops before scaling in
   advanced:
@@ -49,7 +53,28 @@ spec:
         # Total requests/second arriving at the HMS ingress. KEDA divides this by
         # the threshold to decide how many pods it needs.
         query: sum(rate(nginx_ingress_controller_requests{ingress="hms"}[1m]))
-        threshold: "1200"
+        # Substituted at deploy time: 200 on AWS (t3.xlarge node), 100 on minikube
+        # (a laptop that is also running the load generator).
+        threshold: "${KEDA_RPS_PER_POD}"
+#
+# ---------------------------------------------------------------------------
+# A NOTE ON SCALING BY MEMORY, since it is the obvious alternative.
+#
+# Kubernetes can scale on memory just as easily (the commented block at the
+# bottom of this file does exactly that at 50% utilisation). For these services
+# it is the wrong signal, and the reason is worth knowing:
+#
+#   A JVM takes memory from the operating system and does not give it back. Heap
+#   grows to meet demand and then stays there, so a Spring Boot pod sits near its
+#   memory limit whether it is serving 10 requests or 1000. Memory-based scaling
+#   would therefore add pods early, and - because memory never falls - never
+#   remove them. The graph would show pods going up and flat-lining.
+#
+# CPU and request rate both fall the moment traffic stops, which is why the demo
+# uses them. The memory version is kept below, commented, so it can be switched
+# on for a service where it does fit (a cache, a queue consumer, anything whose
+# memory tracks the work in flight).
+# ---------------------------------------------------------------------------
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -62,7 +87,7 @@ spec:
     kind: Deployment
     name: appointment-ms
   minReplicas: 1
-  maxReplicas: 6
+  maxReplicas: 3
   metrics:
     - type: Resource
       resource:
@@ -110,3 +135,29 @@ spec:
         target:
           type: Utilization
           averageUtilization: 65
+# ---------------------------------------------------------------------------
+# OPTIONAL: scale on memory instead of CPU. Uncomment to use, and remove the
+# CPU-based HorizontalPodAutoscaler for the same Deployment first - two
+# autoscalers pointing at one Deployment fight each other.
+#
+# ---
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: appointment-ms-memory
+#   namespace: hms
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: appointment-ms
+#   minReplicas: 1
+#   maxReplicas: 3
+#   metrics:
+#     - type: Resource
+#       resource:
+#         name: memory
+#         target:
+#           type: Utilization
+#           averageUtilization: 50   # add a pod once pods average 50% of their memory request
+# ---------------------------------------------------------------------------

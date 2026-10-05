@@ -1,0 +1,37 @@
+# TARGET_RPS=1000 DURATION=10m BASE_URL=http://10.0.1.86:9000 ./run.sh api-load.js
+#
+# READ THIS BEFORE QUOTING ANY NUMBER BELOW.
+# This run is GENERATOR-LIMITED. The k6 machine (2 vCPU) hit 99% CPU and exhausted its
+# 400-VU pool, so the latency figures include queueing inside the load generator and are NOT
+# HMS latency. The suite detects this and refuses to report the run as system capacity.
+#
+# What this run DOES establish: HMS served 377,165 requests at 628.61 req/s with 0 errors.
+# HMS host CPU averaged 58.5% during it, so the real breaking point is ABOVE 628 req/s and
+# was not reached -- measuring it requires a larger load generator.
+
+     scenarios: 1 scenario, 400 max VUs, 10m30s max duration:
+              * main: 1000.00 iterations/s for 10m0s (maxVUs: 200-400)
+
+WARN[0008] Insufficient VUs, reached 400 active VUs and cannot initialize more  executor=constant-arrival-rate scenario=main
+
+==================== HMS BENCHMARK: api-load / custom ====================
+  RUN ID                     20260920-160023
+  TARGET RPS (iter/s)        1000
+  ACHIEVED ITER/S            628.61
+  TARGET REACHED             NO
+  TOTAL REQUESTS             377165
+  DROPPED ITERATIONS         222836
+  ERROR RATE                 0.000 %
+  BUSINESS REJECTIONS        0
+  P50 / P90 (ms)             594.45 / 916.53     <-- includes generator-side queueing
+  P95 / P99 (ms)             1027.74 / 1254.83   <-- includes generator-side queueing
+  MAX (ms)                   2238.85
+  PEAK VUs (active / alloc)  400 / 400           <-- VU pool exhausted
+  DATA RECEIVED / SENT       312.0 MB / 189.4 MB
+  THRESHOLDS FAILED          dropped_iterations
+  NOTE: All 400 allocated VUs were busy at peak (VU pool exhausted).
+==========================================================================================
+GENERATOR  samples=299  k6 cores used: peak 1.99 avg 0.36  |  k6 RSS peak 828 MB  |  host CPU peak 99% avg 20%
+VERDICT: GENERATOR CPU SATURATED (host CPU peak >= 85%). Results are GENERATOR-LIMITED;
+         do not raise load further on this machine.
+k6 exit code: 99

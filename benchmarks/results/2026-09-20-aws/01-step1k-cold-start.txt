@@ -1,0 +1,22 @@
+# PHASE=step1k BASE_URL=http://10.0.1.86:9000 ./run.sh api-load.js
+# First api-load run after the containers were started. NotificationMS received its very
+# first HTTP request during this test (Spring logged "Initializing Spring DispatcherServlet"
+# at 14:49:25), so the cold-start cost lands inside the measured window.
+# Classification: test-setup artifact. Not HMS capacity, not generator capacity
+# (generator host CPU 7%, RSS 57 MB).
+
+  TARGET RPS (iter/s)        16.67
+  ACHIEVED ITER/S            16.68
+  TARGET REACHED             NO
+  TOTAL REQUESTS             1000
+  DROPPED ITERATIONS         5
+  ERROR RATE                 0.000 %
+  P95 (ms)                   23.89
+  ---- per endpoint (excerpt) ----
+  notifications_patient           p95 1730 ms   max 1970 ms   <-- cold start
+  all other endpoints             p95 < 25 ms
+
+# NotificationMS container log for the same minute:
+2026-09-20T14:49:25.228Z  INFO 1 --- [NotificationMS] [nio-9101-exec-5] o.a.c.c.C.[Tomcat].[localhost].[/]  : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-09-20T14:49:25.229Z  INFO 1 --- [NotificationMS] [nio-9101-exec-5] o.s.web.servlet.DispatcherServlet   : Initializing Servlet 'dispatcherServlet'
+2026-09-20T14:49:25.239Z  INFO 1 --- [NotificationMS] [nio-9101-exec-5] o.s.web.servlet.DispatcherServlet   : Completed initialization in 6 ms

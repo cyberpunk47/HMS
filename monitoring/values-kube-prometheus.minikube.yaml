@@ -1,0 +1,66 @@
+###############################################################################
+# Prometheus + Grafana on minikube.
+#
+# Same two settings that matter on AWS:
+#   remote-write-receiver                  -> lets k6 push its own metrics in
+#   serviceMonitorSelectorNilUsesHelmValues -> lets Prometheus see our ServiceMonitor
+#
+# Sized for a laptop: shorter retention, smaller requests, and Grafana on a fixed
+# NodePort instead of a cloud load balancer.
+###############################################################################
+prometheus:
+  # Published on a fixed NodePort so k6 can push its metrics straight in
+  # (no port-forward to keep alive during a load test).
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    enableFeatures:
+      - remote-write-receiver
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 2h
+    scrapeInterval: 15s
+    resources:
+      requests: { cpu: "100m", memory: "512Mi" }
+      limits: { cpu: "600m", memory: "1Gi" }
+    nodeSelector:
+      role: app
+
+grafana:
+  # Local-only cluster on your own laptop, so a memorable password is fine here.
+  # The AWS values file generates a random one instead.
+  adminPassword: "admin"
+  nodeSelector:
+    role: app
+  service:
+    type: NodePort
+    nodePort: 30030
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits: { cpu: "300m", memory: "256Mi" }
+  defaultDashboardsEnabled: false # the stock dashboards are noise for this demo
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+  grafana.ini:
+    users:
+      default_theme: light
+
+alertmanager:
+  enabled: false
+
+# minikube runs the control plane as static pods that these jobs cannot scrape,
+# so leaving them on would show permanently red targets.
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }
+
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true

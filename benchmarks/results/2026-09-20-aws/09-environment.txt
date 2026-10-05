@@ -1,0 +1,32 @@
+== HMS instance ==
+t3.large
+vCPU: 2
+               total        used        free      shared  buff/cache   available
+Mem:               7           4           0           0           3           3
+Linux 7.0.0-1012-aws x86_64
+
+== containers ==
+hms-kafka               apache/kafka:3.9.0      Up About an hour (healthy)
+hms-notification-ms     hms-notification-ms     Up About an hour
+hms-appointment-ms      hms-appointment-ms      Up About an hour
+hms-pharmacy-ms         hms-pharmacy-ms         Up 2 hours
+hms-profile-ms          hms-profile-ms          Up 2 hours
+hms-user-ms             hms-user-ms             Up 2 hours
+hms-gateway             hms-gateway             Up 2 hours
+hms-postgres            postgres:17-alpine      Up 2 hours (healthy)
+hms-eureka-server       hms-eureka-server       Up 2 hours (healthy)
+
+== versions ==
+openjdk version "21.0.12" 2026-07-21 LTS
+OpenJDK Runtime Environment Temurin-21.0.12+8 (build 21.0.12+8-LTS)
+
+== seeded data (all created through the public APIs by k6/seed/seed.js) ==
+hms_user_db          users 251
+hms_profile_db       patient 200, doctor 50
+hms_appointment_db   appointment 72, medicine 60, prescription 30, ap_record 30
+hms_pharmacy_db      medicine_inventory 20, medicine 20, sale_item 0, sale 0
+hms_notification_db  notifications 210
+
+== load generator ==
+AWS EC2, Ubuntu 24.04, 2 vCPU, 3832 MB RAM, k6, same VPC as the HMS host
+Benchmark traffic went to the private IP 10.0.1.86:9000 (no internet hop).

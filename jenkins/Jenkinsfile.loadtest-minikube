@@ -1,0 +1,132 @@
+/*
+ * JOB 2 of 2 — "hms-loadtest"   (minikube-on-EC2 edition)
+ *
+ * This is the one you click during the presentation. It builds and deploys
+ * nothing; it only generates traffic and shows what the cluster does about it.
+ *
+ * Pick RATE on the "Build with Parameters" screen:
+ *    200 -> 1 gateway pod stays      (baseline)
+ *    600 -> about 3 pods
+ *   1000 -> about 5 pods             <- the demo number
+ *   1200 -> 6 pods (the cap)
+ *
+ * Pod count is arithmetic, not luck: KEDA is set to 200 req/s per pod, so
+ * replicas = RATE / 200, capped at 6.
+ *
+ * k6 runs on this machine and sends traffic straight to the cluster IP, so the
+ * host port-forward is never in the path and can never be mistaken for the
+ * bottleneck. Its metrics stream into Prometheus, so Grafana shows k6's latency
+ * and the cluster's pod count on one time axis.
+ */
+
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+    disableConcurrentBuilds()
+    timeout(time: 25, unit: 'MINUTES')
+  }
+
+  parameters {
+    choice(name: 'RATE', choices: ['1000', '600', '200', '1200'],
+           description: 'Total requests per second. 1000 is the demo number (5 pods).')
+    string(name: 'DURATION', defaultValue: '3m',
+           description: 'How long to hold that rate. 3m suits a live demo.')
+  }
+
+  environment {
+    RATE     = "${params.RATE}"
+    DURATION = "${params.DURATION}"
+  }
+
+  stages {
+
+    stage('Locate the cluster') {
+      steps {
+        sh '''
+          set -e
+          minikube status >/dev/null 2>&1 || { echo "Cluster is down. Run hms-platform first."; exit 1; }
+          IP=$(minikube ip)
+          echo "http://$IP:30080/api"      > .base_url
+          echo "http://$IP:30090/api/v1/write" > .prom_url
+          echo "target     : $(cat .base_url)"
+          curl -fsS --max-time 10 "http://$IP:30080/healthz" >/dev/null && echo "frontend is up"
+        '''
+      }
+    }
+
+    stage('Refresh tokens') {
+      steps {
+        sh '''
+          set -e
+          # JWTs live 5 hours. A stale token turns the whole run into 401s, which
+          # looks like a capacity problem on stage and is not one.
+          BASE_URL="$(cat .base_url)" TOKENS_ONLY=1 node k6/seed/seed.js \
+            || BASE_URL="$(cat .base_url)" node k6/seed/seed.js
+        '''
+      }
+    }
+
+    stage('Before') {
+      steps {
+        sh '''
+          echo "--- before the load ---"
+          kubectl -n hms get deploy gateway -o wide
+          kubectl -n hms get scaledobject,hpa
+        '''
+      }
+    }
+
+    stage('Fire traffic') {
+      steps {
+        sh '''
+          set -e
+          echo "Generating ${RATE} req/s for ${DURATION}"
+          echo "Expect $(( (RATE + 199) / 200 )) gateway pods (capped at 6)"
+
+          # Print the pod count every 15s next to k6's own output, so the scaling
+          # is visible in this log even if Grafana is not on screen.
+          ( for i in $(seq 1 40); do
+              printf "   [%s] gateway pods ready: %s\\n" "$(date +%H:%M:%S)" \
+                "$(kubectl -n hms get deploy gateway -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)"
+              sleep 15
+            done ) &
+          WATCH=$!
+
+          mkdir -p k6/results
+          K6_PROMETHEUS_RW_SERVER_URL="$(cat .prom_url)" \
+          K6_PROMETHEUS_RW_TREND_STATS="p(95),p(99),max,avg" \
+          k6 run -o experimental-prometheus-rw \
+            -e BASE_URL="$(cat .base_url)" -e TARGET_RPS="${RATE}" -e DURATION="${DURATION}" -e VU_CAP=300 \
+            --tag testid="build-${BUILD_NUMBER}" \
+            k6/api-load.js | tee "k6/results/loadtest-${BUILD_NUMBER}.txt"
+
+          kill $WATCH 2>/dev/null || true
+        '''
+      }
+    }
+
+    stage('After') {
+      steps {
+        sh '''
+          echo "--- after the load ---"
+          kubectl -n hms get deploy gateway -o wide
+          kubectl -n hms get scaledobject,hpa -o wide > "k6/results/autoscaling-${BUILD_NUMBER}.txt" 2>/dev/null || true
+          kubectl -n hms get pods -o wide >> "k6/results/autoscaling-${BUILD_NUMBER}.txt"
+          cat "k6/results/autoscaling-${BUILD_NUMBER}.txt"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'k6/results/*', allowEmptyArchive: true
+    }
+    success {
+      echo 'Done. Pods scale back to 1 about two minutes after the load stops (KEDA cooldownPeriod).'
+    }
+  }
+}

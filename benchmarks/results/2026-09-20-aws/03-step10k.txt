@@ -1,0 +1,45 @@
+# PHASE=step10k BASE_URL=http://10.0.1.86:9000 ./run.sh api-load.js
+
+==================== HMS BENCHMARK: api-load / step10k ====================
+  RUN ID                     20260920-151146
+  TARGET RPS (iter/s)        83.33
+  ACHIEVED ITER/S            83.34
+  TARGET REACHED             YES
+  TOTAL REQUESTS             10001
+  DROPPED ITERATIONS         0
+  ERROR RATE                 0.000 %
+  BUSINESS REJECTIONS        0
+  P50 / P90 (ms)             4.08 / 8.98
+  P95 / P99 (ms)             13.08 / 32.49
+  MAX (ms)                   156.09
+  PEAK VUs (active / alloc)  4 / 17
+  DATA RECEIVED / SENT       8.3 MB / 5.0 MB
+  ---- per endpoint ----------------------------------------------------------
+  endpoint                         count     ok%      p50      p95      p99      max
+  pharmacy_medicine_getall           500   100.0      5.2    17.88    44.08   123.74
+  appointments_by_doctor             800   100.0     6.12    25.72    48.56    88.91
+  appointment_reasons_by_doctor      500   100.0     3.82    13.23    23.07    35.04
+  appointment_count_by_patient       800   100.0     3.88    10.97    24.75    69.04
+  notifications_patient              800   100.0     3.55     9.86    20.63    35.04
+  patient_profile_get               1501   100.0     3.99    10.34    33.16    94.95
+  doctor_dropdowns                   500   100.0     3.96     9.56    19.03    34.18
+  appointment_booked_slots           500   100.0     3.73    11.37    26.59   113.56
+  prescriptions_by_patient           700   100.0     3.83    11.99    23.25     48.5
+  records_by_patient                1000   100.0     4.04    11.16       23    45.93
+  doctor_profile_get                1000   100.0      3.7      9.5    17.33    45.21
+  appointments_by_patient           1400   100.0     3.96    15.46    44.61   156.09
+==========================================================================================
+GENERATOR  samples=59  k6 cores used: peak 0.38 avg 0.10  |  k6 RSS peak 74 MB  |  host CPU peak 19% avg 5%
+VERDICT: generator had headroom.
+k6 exit code: 0
+
+# Host metrics captured during this run (hms-monitor.sh):
+container hms-appointment-ms     peak CPU   46.3%
+container hms-gateway            peak CPU   17.8%
+container hms-kafka              peak CPU  151.6%   <-- Kafka busiest, in a test that sends no Kafka messages
+container hms-notification-ms    peak CPU    2.5%
+container hms-postgres           peak CPU    7.4%
+container hms-profile-ms         peak CPU   32.1%
+host CPU peak 62.4%, min available memory 3893 MB
+hikari hms-appointment-ms   peak active  / max 10.0, peak pending
+hikari hms-profile-ms       peak active 1.0 / max 10.0, peak pending

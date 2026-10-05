@@ -55,8 +55,8 @@ spec:
             - name: data
               mountPath: /var/lib/postgresql/data
           resources:
-            requests: { cpu: "250m", memory: "512Mi" }
-            limits: { cpu: "1000m", memory: "1Gi" }
+            requests: { cpu: "150m", memory: "512Mi" }
+            limits: { cpu: "600m", memory: "1Gi" }
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "postgres"]
@@ -113,8 +113,8 @@ spec:
           ports:
             - containerPort: 29092
           resources:
-            requests: { cpu: "250m", memory: "768Mi" }
-            limits: { cpu: "1000m", memory: "1536Mi" }
+            requests: { cpu: "150m", memory: "768Mi" }
+            limits: { cpu: "700m", memory: "1280Mi" }
           # Same lesson as the Docker Compose fix: a healthcheck that starts a JVM
           # every few seconds steals CPU from the application. This one is a plain
           # TCP connect.
@@ -156,8 +156,8 @@ spec:
           ports:
             - containerPort: 8761
           resources:
-            requests: { cpu: "200m", memory: "384Mi" }
-            limits: { cpu: "500m", memory: "768Mi" }
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "400m", memory: "640Mi" }
           readinessProbe:
             httpGet: { path: /actuator/health, port: 8761 }
             initialDelaySeconds: 30

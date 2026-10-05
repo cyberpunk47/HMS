@@ -1,0 +1,39 @@
+# PHASE=step50k BASE_URL=http://10.0.1.86:9000 ./run.sh api-load.js
+# BEFORE the Kafka healthcheck fix. Throughput held (99.6% of target) and there were zero
+# errors, but the latency tail exploded: median unchanged at 4.6 ms while p95 hit 151 ms and
+# p99 555 ms -- and every endpoint degraded by the same amount, which points at a shared
+# resource rather than one slow service. Generator was healthy (host CPU peak 33%).
+
+==================== HMS BENCHMARK: api-load / step50k ====================
+  RUN ID                     20260920-150052
+  TARGET RPS (iter/s)        166.67
+  ACHIEVED ITER/S            165.99
+  TARGET REACHED             NO
+  TOTAL REQUESTS             49798
+  DROPPED ITERATIONS         203
+  ERROR RATE                 0.000 %
+  BUSINESS REJECTIONS        0
+  P50 / P90 (ms)             4.56 / 51.05
+  P95 / P99 (ms)             150.97 / 555.25
+  MAX (ms)                   1238.97
+  PEAK VUs (active / alloc)  95 / 118
+  DATA RECEIVED / SENT       41.2 MB / 25.0 MB
+  ---- per endpoint ----------------------------------------------------------
+  endpoint                         count     ok%      p50      p95      p99      max
+  patient_profile_get               7470   100.0     4.26   150.36   529.02  1032.15
+  records_by_patient                4980   100.0     4.33   158.74   617.29  1105.04
+  prescriptions_by_patient          3486   100.0     4.33   167.67   610.79  1238.97
+  appointments_by_doctor            3984   100.0     7.26    171.4   621.29  1126.13
+  appointment_count_by_patient      3984   100.0     4.06   136.52   537.03   901.05
+  doctor_profile_get                4980   100.0     3.97   151.61   539.18   990.16
+  appointment_booked_slots          2490   100.0     4.49   155.34   547.71  1098.38
+  doctor_dropdowns                  2490   100.0     4.16   137.92   614.79  1004.46
+  notifications_patient             3984   100.0     4.29   101.02   525.27  1151.07
+  appointment_reasons_by_doctor     2490   100.0     3.89   134.48   532.86   941.45
+  pharmacy_medicine_getall          2488   100.0     8.25   154.56   500.69   898.24
+  appointments_by_patient           6972   100.0     4.73   167.02   584.35  1140.61
+  THRESHOLDS FAILED          dropped_iterations
+==========================================================================================
+GENERATOR  samples=149  k6 cores used: peak 0.65 avg 0.17  |  k6 RSS peak 253 MB  |  host CPU peak 33% avg 9%
+VERDICT: generator had headroom (host CPU peak < 85%, RSS under guard).
+k6 exit code: 99
