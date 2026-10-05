@@ -5,9 +5,14 @@
 # single-node Kubernetes cluster owned by the jenkins user, and forwards two host
 # ports into it so the application and Grafana are reachable from the internet.
 #
-# Terraform renders this file, so a dollar-brace pair is read as a Terraform
-# variable. Only these four are variables: admin_password, repo_url,
-# minikube_cpus, minikube_memory. Shell variables are written as two dollars.
+# Terraform renders this file with templatefile(), which treats ONLY the exact
+# sequence dollar-brace as a variable. Four are real: admin_password, repo_url,
+# minikube_cpus, minikube_memory.
+#
+# Everything else is plain text, INCLUDING a lone dollar. So shell writes
+# $VAR and $(cmd) normally. Doubling the dollar does NOT escape those - it is
+# only an escape in front of a brace, and anywhere else it survives into the
+# file verbatim and breaks the script.
 
 package_update: true
 
@@ -91,7 +96,12 @@ write_files:
       Environment=HOME=/var/lib/jenkins
       Environment=MINIKUBE_IN_STYLE=false
       Environment=CHANGE_MINIKUBE_NONE_USER=true
-      ExecStart=/usr/local/bin/minikube start --driver=docker --cpus=${minikube_cpus} --memory=${minikube_memory} --addons=metrics-server
+      # --container-runtime=docker is NOT the default any more: current minikube
+      # defaults the docker driver to containerd, and then `minikube docker-env`
+      # is an experimental SSH shim into a daemon kubelet never reads - builds
+      # drop their connection, and any image that does survive is invisible to
+      # Kubernetes. Naming the runtime makes `docker build` land where pods look.
+      ExecStart=/usr/local/bin/minikube start --driver=docker --container-runtime=docker --cpus=${minikube_cpus} --memory=${minikube_memory} --addons=metrics-server
       ExecStop=/usr/local/bin/minikube stop
       TimeoutStartSec=600
 
@@ -109,15 +119,16 @@ write_files:
     content: |
       #!/bin/bash
       set -u
-      for i in $$(seq 1 60); do
-        IP=$$(su - jenkins -c '/usr/local/bin/minikube ip' 2>/dev/null)
-        [ -n "$$IP" ] && break
+      # Runs as root, so su needs no password.
+      for i in $(seq 1 60); do
+        IP=$(su - jenkins -c '/usr/local/bin/minikube ip' 2>/dev/null)
+        [ -n "$IP" ] && break
         sleep 10
       done
-      [ -n "$$IP" ] || { echo "minikube is not up yet"; exit 1; }
-      echo "forwarding host ports to $$IP"
-      socat TCP-LISTEN:30080,fork,reuseaddr TCP:$$IP:30080 &
-      socat TCP-LISTEN:30030,fork,reuseaddr TCP:$$IP:30030 &
+      [ -n "$IP" ] || { echo "minikube is not up yet"; exit 1; }
+      echo "forwarding host ports to $IP"
+      socat TCP-LISTEN:30080,fork,reuseaddr TCP:$IP:30080 &
+      socat TCP-LISTEN:30030,fork,reuseaddr TCP:$IP:30030 &
       wait
 
   - path: /etc/systemd/system/hms-portforward.service
@@ -201,7 +212,7 @@ runcmd:
   - 'su - jenkins -c "/usr/local/bin/kubectl get nodes" || echo "WARNING - minikube did not come up; check: journalctl -u minikube"'
 
   # ---------- prove Jenkins came up configured, not as a blank wizard ----------
-  - 'for i in $$(seq 1 60); do curl -fsS -o /tmp/jenkins-login.html http://localhost:8080/login 2>/dev/null && break; sleep 5; done'
+  - 'for i in $(seq 1 60); do curl -fsS -o /tmp/jenkins-login.html http://localhost:8080/login 2>/dev/null && break; sleep 5; done'
   - 'grep -qi "initialAdminPassword" /tmp/jenkins-login.html && echo "FATAL - Jenkins is showing the setup wizard, JCasC did not load; see journalctl -u jenkins" || echo "OK - Jenkins is configured by JCasC, log in with the terraform password"'
 
 final_message: "cloud-init finished in $UPTIME seconds. Jenkins is ready ONLY if no FATAL line appears above."
