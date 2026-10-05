@@ -27,8 +27,11 @@ prometheus:
     retention: 2h
     scrapeInterval: 15s
     resources:
+      # Headroom for the load test: k6 remote-writes a trend metric per endpoint
+      # per rate, which is a lot of new series arriving in a few minutes on top
+      # of the normal scrape load. 1Gi was tight before that traffic existed.
       requests: { cpu: "100m", memory: "512Mi" }
-      limits: { cpu: "600m", memory: "1Gi" }
+      limits: { cpu: "1500m", memory: "2Gi" }
     nodeSelector:
       role: app
 
@@ -42,8 +45,13 @@ grafana:
     type: NodePort
     nodePort: 30030
   resources:
-    requests: { cpu: "50m", memory: "128Mi" }
-    limits: { cpu: "300m", memory: "256Mi" }
+    # 256Mi was wrong and it showed: Grafana sat at ~146Mi idle, then every time
+    # the HMS dashboard was opened the range queries pushed it over the limit and
+    # the kernel killed it - 16 OOMKills, exit 137, and the browser got
+    # ERR_EMPTY_RESPONSE because the pod died mid-request. A dashboard with eight
+    # panels is the normal case here, not a peak, so the limit has to cover it.
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "800m", memory: "768Mi" }
   defaultDashboardsEnabled: false # the stock dashboards are noise for this demo
   sidecar:
     dashboards:
