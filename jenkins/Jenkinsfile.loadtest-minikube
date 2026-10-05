@@ -5,13 +5,17 @@
  * nothing; it only generates traffic and shows what the cluster does about it.
  *
  * Pick RATE on the "Build with Parameters" screen:
- *    200 -> 1 gateway pod stays      (baseline)
- *    600 -> about 3 pods
- *   1000 -> about 5 pods             <- the demo number
- *   1200 -> 6 pods (the cap)
+ *    150 -> 1-2 gateway pods          (baseline)
+ *    300 -> about 3 pods
+ *    600 -> 6 pods, the cap           <- the demo number
+ *   1000 -> 6 pods, and the backend becomes the limit, not the gateway
  *
- * Pod count is arithmetic, not luck: KEDA is set to 200 req/s per pod, so
- * replicas = RATE / 200, capped at 6.
+ * Pod count is arithmetic, not luck: KEDA is set to 100 req/s per pod, so
+ * replicas = (req/s actually arriving) / 100, capped at 6.
+ *
+ * Note "actually arriving", not RATE: KEDA reads the ingress controller's own
+ * counter, so if the backend cannot absorb RATE the pod count follows what got
+ * through rather than what was asked for. That is the honest behaviour.
  *
  * k6 runs on this machine and sends traffic straight to the cluster IP, so the
  * host port-forward is never in the path and can never be mistaken for the
@@ -30,8 +34,8 @@ pipeline {
   }
 
   parameters {
-    choice(name: 'RATE', choices: ['1000', '600', '200', '1200'],
-           description: 'Total requests per second. 1000 is the demo number (5 pods).')
+    choice(name: 'RATE', choices: ['600', '300', '150', '1000'],
+           description: 'Total requests per second. 600 is the demo number (drives the gateway to its 6-pod cap).')
     string(name: 'DURATION', defaultValue: '3m',
            description: 'How long to hold that rate. 3m suits a live demo.')
   }
@@ -84,7 +88,7 @@ pipeline {
         sh '''
           set -e
           echo "Generating ${RATE} req/s for ${DURATION}"
-          echo "Expect $(( (RATE + 199) / 200 )) gateway pods (capped at 6)"
+          echo "Expect up to $(( (RATE + 99) / 100 )) gateway pods (capped at 6)"
 
           # Print the pod count every 15s next to k6's own output, so the scaling
           # is visible in this log even if Grafana is not on screen.

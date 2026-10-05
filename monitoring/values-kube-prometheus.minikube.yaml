@@ -15,8 +15,12 @@ prometheus:
     type: NodePort
     nodePort: 30090
   prometheusSpec:
-    enableFeatures:
-      - remote-write-receiver
+    # k6 pushes its own metrics in over the remote-write protocol. This used to
+    # be a Prometheus feature flag ("enableFeatures: [remote-write-receiver]");
+    # since Prometheus 3.x it is a server flag of its own, and an unrecognised
+    # feature name is ignored silently - /api/v1/write then 404s and k6 logs
+    # "got status code: 404" for the whole run while the dashboard shows No data.
+    enableRemoteWriteReceiver: true
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false

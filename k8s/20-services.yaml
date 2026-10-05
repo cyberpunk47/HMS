@@ -14,6 +14,22 @@
 #
 # Resource requests are mandatory here: autoscaling measures "percent of the CPU
 # you asked for", so a Deployment without a request can never be scaled.
+#
+# THREE MORE ENVIRONMENT VARIABLES, for the same reason - Kubernetes moves pods
+# far more often than Docker Compose does:
+#
+#   EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS=5
+#   EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS=5
+#   EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS=15
+#
+# A pod that is Ready is not yet ROUTABLE. By default a Eureka client refetches
+# the registry only every 30 seconds, so a freshly started gateway pod has an
+# empty service list and answers 503 to everything for up to half a minute.
+# That is invisible in Compose, where nothing restarts mid-demo. Here KEDA adds
+# gateway pods during the load test, and each one would spend its first 30
+# seconds returning errors. Refreshing every 5 seconds closes that window;
+# the shorter lease pair means a pod that goes away is forgotten in 15 seconds
+# instead of 90, so traffic is not sent to a dead instance either.
 ###############################################################################
 apiVersion: v1
 kind: Service
@@ -48,6 +64,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - { name: FRONTEND_URL, value: "*" }
             - name: JWT_SECRET
               valueFrom:
@@ -98,6 +117,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - { name: SWAGGER_ENABLED, value: "false" }
             - name: JWT_SECRET
               valueFrom:
@@ -144,6 +166,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - { name: SWAGGER_ENABLED, value: "false" }
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -187,6 +212,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - { name: SWAGGER_ENABLED, value: "false" }
             - { name: HMS_BUSINESS_TIMEZONE, value: "Asia/Kolkata" }
             - name: SPRING_DATASOURCE_PASSWORD
@@ -231,6 +259,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - { name: SWAGGER_ENABLED, value: "false" }
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -274,6 +305,9 @@ spec:
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
             - { name: EUREKA_INSTANCE_PREFER_IP_ADDRESS, value: "true" }
+            - { name: EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS, value: "5" }
+            - { name: EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS, value: "15" }
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef: { name: hms-secrets, key: POSTGRES_PASSWORD }

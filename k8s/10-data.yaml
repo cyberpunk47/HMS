@@ -39,6 +39,18 @@ spec:
       containers:
         - name: postgres
           image: postgres:17-alpine
+          # The official image passes extra arguments straight to postgres.
+          #
+          # max_connections defaults to 100. Every service pod holds a HikariCP
+          # pool of 10 (Spring's default), and the autoscalers can reach
+          # user-ms 4 + profile-ms 4 + appointment-ms 3 + pharmacy 1 +
+          # notification 1 = 13 pods, so full scale-out asks for 130. At 100 the
+          # extra pods cannot connect, die with exit 1 and crash-loop - which is
+          # exactly what happened: psql itself was refused with
+          # "FATAL: sorry, too many clients already". Scaling out then made
+          # throughput WORSE, because the database was the constraint, not the
+          # gateway. 200 covers full scale-out with headroom for admin sessions.
+          args: ["-c", "max_connections=200", "-c", "shared_buffers=256MB"]
           env:
             - name: POSTGRES_USER
               value: postgres
@@ -55,8 +67,12 @@ spec:
             - name: data
               mountPath: /var/lib/postgresql/data
           resources:
+            # Raised with max_connections: a Postgres backend costs roughly 5 MB
+            # of private memory, so 200 of them plus 256 MB of shared buffers no
+            # longer fits in 1 GiB. The request is unchanged - this is a ceiling,
+            # not a reservation, and the node is at 43% memory.
             requests: { cpu: "150m", memory: "512Mi" }
-            limits: { cpu: "600m", memory: "1Gi" }
+            limits: { cpu: "1000m", memory: "2Gi" }
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "postgres"]
@@ -153,6 +169,15 @@ spec:
           image: ${ECR_REGISTRY}/hms/eureka-server:${IMAGE_TAG}
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: docker }
+            # The server side of the same problem. Eureka caches the registry it
+            # serves for 30s, and on a cold start refuses to serve at all for 5
+            # minutes ("waiting for peers to sync") - which on a single-node
+            # cluster with no peers is pure dead time. Self-preservation also has
+            # to go: it is designed to keep instances listed during a network
+            # partition, but here it would keep listing pods KEDA just deleted.
+            - { name: EUREKA_SERVER_RESPONSE_CACHE_UPDATE_INTERVAL_MS, value: "5000" }
+            - { name: EUREKA_SERVER_WAIT_TIME_IN_MS_WHEN_SYNC_EMPTY, value: "0" }
+            - { name: EUREKA_SERVER_ENABLE_SELF_PRESERVATION, value: "false" }
           ports:
             - containerPort: 8761
           resources:

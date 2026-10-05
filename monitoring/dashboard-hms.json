@@ -47,7 +47,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(nginx_ingress_controller_requests{ingress=\"hms\"}[1m]))",
+          "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
           "legendFormat": "req/s"
         }
       ],
@@ -78,7 +78,7 @@
     {
       "type": "stat",
       "title": "Gateway pods",
-      "description": "How many gateway pods are ready. KEDA adds one for every 1200 req/s.",
+      "description": "How many gateway pods are ready. KEDA adds one for every 100 req/s.",
       "datasource": null,
       "gridPos": {
         "h": 5,
@@ -189,7 +189,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(nginx_ingress_controller_requests{ingress=\"hms\", status=~\"5..\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"hms\", status=~\"5..\"}[1m]))",
           "legendFormat": "5xx/s"
         }
       ],
@@ -255,7 +255,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(nginx_ingress_controller_requests{ingress=\"hms\"}[1m]))",
+          "expr": "sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))",
           "legendFormat": "requests/s"
         }
       ],
@@ -292,8 +292,8 @@
     },
     {
       "type": "timeseries",
-      "title": "2 \u00b7 Gateway pods, decided by KEDA (1 pod per 1200 req/s)",
-      "description": "Same time axis as the panel above. When the line above crosses a multiple of 1200, this one steps up about a minute later \u2014 KEDA polls every 15 s and new pods need time to pass their readiness probe.",
+      "title": "2 \u00b7 Gateway pods, decided by KEDA (1 pod per 100 req/s)",
+      "description": "Same time axis as the panel above. When the line above crosses a multiple of 100, this one steps up about a minute later \u2014 KEDA polls every 15 s and new pods need time to pass their readiness probe.",
       "datasource": null,
       "gridPos": {
         "h": 8,

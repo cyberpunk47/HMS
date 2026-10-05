@@ -6,8 +6,11 @@
 #  1. It is the number you can defend. The gateway used 0.407 of a core while
 #     serving 628 req/s, i.e. ~1540 req/s per core. Each pod here requests 150m
 #     and is capped at 800m, so ~200 req/s per pod is the honest figure.
-#  2. It is deterministic on stage. 1000 req/s / 200 = 5 pods, every time —
-#     a CPU-based rule would scale at whatever moment CPU happens to cross 60%.
+#  2. It is deterministic on stage. At 100 req/s per pod, 300 req/s is 3 pods
+#     and 500 is 5, every time — a CPU-based rule would scale at whatever
+#     moment CPU happens to cross 60%. 100 is deliberately below the ~200 req/s
+#     a pod can actually carry: the point of the demo is to make the mechanism
+#     visible in three minutes, not to run the gateway at its ceiling.
 #
 # The absolute numbers are small because the whole cluster is one 4-vCPU node:
 # the account's EC2 quota is 8 vCPU. The behaviour being demonstrated — traffic
@@ -52,7 +55,16 @@ spec:
         metricName: hms_ingress_rps
         # Total requests/second arriving at the HMS ingress. KEDA divides this by
         # the threshold to decide how many pods it needs.
-        query: sum(rate(nginx_ingress_controller_requests{ingress="hms"}[1m]))
+        # nginx_ingress_controller_requests does NOT exist in this ingress-nginx
+        # build. With --enable-metrics=true the controller publishes 24 nginx_
+        # metric lines and every one of them is process-level; there is no
+        # per-ingress request counter. KEDA therefore read 0 for an entire
+        # 84,000-request load test and never scaled. This counter is the one
+        # that does exist, and it is still measured at the front door rather
+        # than inside the application. It counts every request nginx handles,
+        # so expect a couple of req/s of health-check baseline - far below the
+        # 100 threshold, so it cannot trigger scaling on its own.
+        query: sum(rate(nginx_ingress_controller_nginx_process_requests_total[1m]))
         # Substituted at deploy time: 200 on AWS (t3.xlarge node), 100 on minikube
         # (a laptop that is also running the load generator).
         threshold: "${KEDA_RPS_PER_POD}"

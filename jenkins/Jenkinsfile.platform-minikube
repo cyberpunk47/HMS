@@ -42,8 +42,11 @@ pipeline {
     // The manifests prefix every image with this; locally built images never leave the box.
     ECR_REGISTRY     = 'hms-local'
     IMAGE_TAG        = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : env.BUILD_NUMBER}"
-    // Requests per second one gateway pod carries. 1000 / 200 = 5 pods.
-    KEDA_RPS_PER_POD = '200'
+    // Requests per second one gateway pod carries, i.e. the KEDA threshold.
+    // replicas = arriving req/s / this, capped at maxReplicaCount (6).
+    // 100 makes the scaling visible within the few minutes a demo has:
+    // 300 req/s -> 3 pods, 500 -> 5, 600 and above -> 6.
+    KEDA_RPS_PER_POD = '100'
   }
 
   stages {
@@ -181,8 +184,28 @@ pipeline {
             sleep 5
           done
 
+          # A Ready pod is not yet a ROUTABLE one. Until the gateway has fetched
+          # the registry from Eureka, lb://UserMS has no instance behind it and
+          # every call returns 503. Any other status - even 400 or 401 - proves
+          # the request reached the service, which is all we are waiting for.
+          echo "waiting for the gateway to resolve UserMS through Eureka"
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                     -X POST "$BASE/api/users/login" \
+                     -H 'Content-Type: application/json' \
+                     -d '{"email":"routing.probe@invalid","password":"x"}' || true)
+            case "$code" in
+              000|502|503|504) sleep 5 ;;
+              *) echo "gateway is routing after $((i * 5))s (HTTP $code)"; break ;;
+            esac
+          done
+
           echo "seeding through the public API at $BASE/api"
-          PATIENTS=150 DOCTORS=30 MEDICINES=20 HISTORY_VISITS=2 \
+          # These are read by k6/seed/seed.js and every one of them is prefixed
+          # BENCH_. Without the prefix they are silently ignored and the script
+          # falls back to its defaults (200 patients, 50 doctors, 30 visits each),
+          # which is what build #4 actually seeded.
+          BENCH_PATIENTS=150 BENCH_DOCTORS=30 BENCH_MEDICINES=20 BENCH_HISTORY_VISITS=2 \
             BASE_URL="$BASE/api" node k6/seed/seed.js
         '''
       }

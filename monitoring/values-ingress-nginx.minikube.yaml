@@ -3,9 +3,15 @@
 #
 # Difference from the AWS file: no cloud load balancer exists here, so the
 # controller is published on a fixed NodePort and reached at
-# http://$(minikube ip):30080 . Everything else — especially metrics.enabled,
-# which produces the nginx_ingress_controller_requests counter KEDA scales on —
-# is the same.
+# http://$(minikube ip):30080 . Everything else, including metrics.enabled, is
+# the same.
+#
+# metrics.enabled gives you 24 nginx_ metric lines and they are ALL
+# process-level: nginx_ingress_controller_nginx_process_requests_total,
+# _connections, _cpu_seconds_total, plus build/config/ssl info. This build
+# publishes no per-ingress counter, so nginx_ingress_controller_requests - the
+# metric most KEDA examples on the internet use - does not exist here. KEDA
+# scales on the process counter instead; see k8s/40-autoscaling.yaml.
 ###############################################################################
 controller:
   replicaCount: 1
