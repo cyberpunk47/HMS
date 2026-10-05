@@ -57,6 +57,22 @@ pipeline {
           echo "http://$IP:30090/api/v1/write" > .prom_url
           echo "target     : $(cat .base_url)"
           curl -fsS --max-time 10 "http://$IP:30080/healthz" >/dev/null && echo "frontend is up"
+
+          # Same gate the platform job uses before seeding. If hms-platform has
+          # only just finished, the gateway may be Ready but not yet able to
+          # resolve UserMS through Eureka, and every call - including the token
+          # refresh below - comes back 503. Wait for the route, not the pod.
+          echo "waiting for the gateway to resolve UserMS through Eureka"
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                     -X POST "http://$IP:30080/api/users/login" \
+                     -H 'Content-Type: application/json' \
+                     -d '{"email":"routing.probe@invalid","password":"x"}' || true)
+            case "$code" in
+              000|502|503|504) sleep 5 ;;
+              *) echo "gateway is routing after $((i * 5))s (HTTP $code)"; break ;;
+            esac
+          done
         '''
       }
     }

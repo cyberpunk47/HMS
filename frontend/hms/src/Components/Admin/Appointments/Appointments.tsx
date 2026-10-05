@@ -44,9 +44,17 @@ const rangeToFilter = (range: Range) => {
 };
 
 const Field = ({ label, value }: { label: string; value: any }) => (
-    <div>
+    // minWidth: 0 is the important half. A CSS grid item defaults to
+    // min-width: auto, which refuses to shrink below the width of its content,
+    // so a long value pushes the cell wider than its column and runs over the
+    // neighbouring one. overflowWrap: anywhere is the other half: an email or a
+    // phone number contains no spaces, so without it the browser has no legal
+    // place to break the line. Both are needed - either alone still overlaps.
+    <div style={{ minWidth: 0 }}>
         <Text size="xs" c="dimmed">{label}</Text>
-        <Text size="sm">{value === undefined || value === null || value === "" ? "—" : value}</Text>
+        <Text size="sm" style={{ overflowWrap: "anywhere" }}>
+            {value === undefined || value === null || value === "" ? "—" : value}
+        </Text>
     </div>
 );
 

@@ -504,7 +504,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"hms\", pod=~\"gateway-.*\", container!=\"\"}[2m]))",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"hms\", pod=~\"gateway-.*\"}[2m]))",
           "legendFormat": "{{pod}}"
         }
       ],
