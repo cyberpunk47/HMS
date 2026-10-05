@@ -152,6 +152,12 @@ runcmd:
   - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 update -y
   - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y jenkins
   - 'test -f /usr/share/java/jenkins.war || { echo "FATAL - jenkins package did not install"; exit 1; }'
+  # Installing the package STARTS Jenkins. If we leave it running, it completes
+  # its first boot now - before the JCasC config and the runSetupWizard flag
+  # below exist - and from then on it shows the stock "Unlock Jenkins" wizard
+  # and ignores everything we configure. So stop it and wipe that first boot.
+  - systemctl stop jenkins
+  - rm -rf /var/lib/jenkins/config.xml /var/lib/jenkins/secrets /var/lib/jenkins/users /var/lib/jenkins/jenkins.install.UpgradeWizard.state /var/lib/jenkins/jenkins.install.InstallUtil.lastExecVersion
 
   # ---------- kubectl / helm / minikube ----------
   - curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
@@ -185,10 +191,17 @@ runcmd:
   - printf '[Service]\nEnvironment="JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Dcasc.jenkins.config=/etc/jenkins-casc/jenkins.yaml"\n' > /etc/systemd/system/jenkins.service.d/override.conf
 
   # ---------- start everything ----------
+  # `enable --now` only starts a STOPPED service, so it would silently skip a
+  # Jenkins that is already up. restart always applies the override above.
   - systemctl daemon-reload
-  - systemctl enable --now jenkins
+  - systemctl enable jenkins
+  - systemctl restart jenkins
   - systemctl enable --now minikube
   - systemctl enable --now hms-portforward
   - 'su - jenkins -c "/usr/local/bin/kubectl get nodes" || echo "WARNING - minikube did not come up; check: journalctl -u minikube"'
+
+  # ---------- prove Jenkins came up configured, not as a blank wizard ----------
+  - 'for i in $$(seq 1 60); do curl -fsS -o /tmp/jenkins-login.html http://localhost:8080/login 2>/dev/null && break; sleep 5; done'
+  - 'grep -qi "initialAdminPassword" /tmp/jenkins-login.html && echo "FATAL - Jenkins is showing the setup wizard, JCasC did not load; see journalctl -u jenkins" || echo "OK - Jenkins is configured by JCasC, log in with the terraform password"'
 
 final_message: "cloud-init finished in $UPTIME seconds. Jenkins is ready ONLY if no FATAL line appears above."
