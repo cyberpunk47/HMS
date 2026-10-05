@@ -34,8 +34,6 @@ pipeline {
   parameters {
     booleanParam(name: 'INSTALL_PLATFORM', defaultValue: true,
                  description: 'Install/upgrade ingress-nginx, Prometheus, Grafana and KEDA. Untick for a faster redeploy of just the app.')
-    booleanParam(name: 'REBUILD_IMAGES', defaultValue: true,
-                 description: 'Rebuild the 8 container images. Untick if only Kubernetes manifests changed.')
   }
 
   environment {
@@ -97,8 +95,17 @@ pipeline {
     }
 
     /* ---------------------------------------------------------------- 3 */
+    /*
+     * This always runs, and there is deliberately no "skip the build" switch.
+     * IMAGE_TAG is the git commit, so the manifests always ask for
+     * hms/<svc>:<this commit>. Skipping the build leaves that tag nonexistent,
+     * Kubernetes falls back to pulling it from Docker Hub, and every pod lands
+     * in ImagePullBackOff - which is what happened on build #6.
+     *
+     * The cost of removing the switch is near zero: Docker caches every layer,
+     * so when nothing has changed this stage finishes in a few seconds.
+     */
     stage('Build images') {
-      when { expression { params.REBUILD_IMAGES } }
       steps {
         sh '''
           set -e
